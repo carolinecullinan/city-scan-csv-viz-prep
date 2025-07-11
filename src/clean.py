@@ -338,11 +338,114 @@ def clean_pv(input_file, output_file=None):
     
     return result_df
 
+def clean_flood(input_file, output_dir=None):
+    """
+    clean up the 20XX-0X-country-city_02-process-output_tabular_city_flood_wsf.csv file and create separate output files for each flood type.
+    Creates fu.csv (fluvial), pu.csv (pluvial), cu.csv (coastal), and comb.csv (combined)
+    based on available data in the input file.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (flood data)
+    output_dir : str, optional
+        Directory for output files (default: 'data/processed/')
+    """
+    
+    # read the flood data CSV file
+    df = pd.read_csv(input_file)
+    
+    # set default output directory
+    if output_dir is None:
+        import os
+        output_dir = 'data/processed'
+        os.makedirs(output_dir, exist_ok=True)
+    
+    # identify available flood types based on column names
+    available_flood_types = {}
+    
+    # check for each flood type (looking for columns ending with _2020)
+    if any('coastal_2020' in col for col in df.columns):
+        available_flood_types['coastal'] = 'coastal_2020'
+    if any('fluvial_2020' in col for col in df.columns):
+        available_flood_types['fluvial'] = 'fluvial_2020'  
+    if any('pluvial_2020' in col for col in df.columns):
+        available_flood_types['pluvial'] = 'pluvial_2020'
+    if any('comb_2020' in col for col in df.columns):
+        available_flood_types['combined'] = 'comb_2020'
+    
+    print(f"Available flood types: {list(available_flood_types.keys())}")
+    
+    created_files = []
+    
+    # process each available flood type
+    flood_mappings = {
+        'fluvial': ('fu', 'fu.csv'),
+        'pluvial': ('pu', 'pu.csv'), 
+        'coastal': ('cu', 'cu.csv'),
+        'combined': ('comb', 'comb.csv')
+    }
+    
+    for flood_type, column_name in available_flood_types.items():
+        if flood_type in flood_mappings:
+            short_name, filename = flood_mappings[flood_type]
+            
+            # create dataframe for this flood type
+            result_df = pd.DataFrame({
+                'year': range(1, len(df) + 1),  # sequential numbering starting from 1
+                'yearName': df['year'],  # actual year from input
+                short_name: df[column_name].round(2)  # rounded flood values
+            })
+            
+            # sort by year to ensure correct order
+            result_df = result_df.sort_values('yearName').reset_index(drop=True)
+            
+            # save to CSV
+            output_path = os.path.join(output_dir, filename)
+            result_df.to_csv(output_path, index=False)
+            created_files.append(filename)
+            
+            print(f"✅ Created {filename}: {len(result_df)} records")
+            print(f"   Year range: {result_df['yearName'].min()} - {result_df['yearName'].max()}")
+            print(f"   {short_name.upper()} range: {result_df[short_name].min():.2f} - {result_df[short_name].max():.2f}")
+    
+    # summary report
+    print(f"\nFlood Risk Data Processing Summary:")
+    print(f"- Input file: {input_file}")
+    print(f"- Output directory: {output_dir}")
+    print(f"- Files created: {', '.join(created_files)}")
+    print(f"- Missing flood types: {set(['fluvial', 'pluvial', 'coastal', 'combined']) - set(available_flood_types.keys())}")
+    
+    # data quality insights
+    if len(available_flood_types) > 1:
+        print(f"\nFlood Risk Analysis:")
+        
+        # compare flood types if multiple are available
+        for flood_type, column_name in available_flood_types.items():
+            avg_risk = df[column_name].mean()
+            max_risk = df[column_name].max()
+            min_risk = df[column_name].min()
+            trend = df[column_name].iloc[-1] - df[column_name].iloc[0]  # latest - earliest
+            
+            print(f"- {flood_type.capitalize()} flood risk:")
+            print(f"  Average: {avg_risk:.2f}, Range: {min_risk:.2f} - {max_risk:.2f}")
+            print(f"  Trend (1985-2015): {trend:+.2f} ({'+increase' if trend > 0 else 'decrease' if trend < 0 else 'stable'})")
+        
+        # identify highest risk type
+        latest_year_risks = {}
+        for flood_type, column_name in available_flood_types.items():
+            latest_year_risks[flood_type] = df[column_name].iloc[-1]
+        
+        highest_risk_type = max(latest_year_risks, key=latest_year_risks.get)
+        print(f"- Dominant risk type (2015): {highest_risk_type.capitalize()} ({latest_year_risks[highest_risk_type]:.2f})")
+    
+    return created_files
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv, clean_flood")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -359,8 +462,10 @@ if __name__ == "__main__":
         clean_pug(input_file, output_file)
     elif 'monthly-pv' in input_file:
         clean_pv(input_file, output_file)
+    elif 'flood' in input_file:
+        clean_flood(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' or 'pug' or 'monthly-pv' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'pug' or 'monthly-pv' or 'flood' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
