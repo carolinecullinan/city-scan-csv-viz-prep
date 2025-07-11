@@ -138,7 +138,7 @@ def clean_pas(input_file, output_file=None):
 
 def clean_uba(input_file, output_file=None):
     """
-    clean up the urban built area csv file (i.e., 20XX-0X-country-city_other_02-process-output_tabular_cartagena_wsf_stats.csv) for visualization as uba.csv.
+    clean up the urban built area csv file (i.e., 20XX-0X-country-city_other_02-process-output_tabular_city_wsf_stats.csv) for visualization as uba.csv.
     
     parameters:
     -----------
@@ -185,6 +185,101 @@ def clean_uba(input_file, output_file=None):
     
     return result_df
 
+def clean_pug(pg_file=None, uba_file=None, output_file=None):
+    """
+    clean up and merge population growth (pg.csv) and urban built area (uba.csv) data 
+    for visualization as pug.csv (population urban growth ratio for urban development dynamics matrix).
+    
+    parameters:
+    -----------
+    pg_file : str, optional
+        Path to the population growth CSV file (default: 'data/processed/pg.csv')
+    uba_file : str, optional
+        Path to the urban built area CSV file (default: 'data/processed/uba.csv')
+    output_file : str, optional
+        Path for output (default: 'data/processed/pug.csv')
+    """
+    
+    # set default file paths if not provided
+    if pg_file is None:
+        pg_file = 'data/processed/pg.csv'
+    if uba_file is None:
+        uba_file = 'data/processed/uba.csv'
+    
+    # read pg.csv and uba.csv
+    try:
+        pg_df = pd.read_csv(pg_file)
+        print(f"✅ Successfully loaded population growth data: {len(pg_df)} records")
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Population growth file not found: {pg_file}")
+    except Exception as e:
+        raise Exception(f"Error reading population growth file: {e}")
+    
+    try:
+        uba_df = pd.read_csv(uba_file)
+        print(f"✅ Successfully loaded urban built area data: {len(uba_df)} records")
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Urban built area file not found: {uba_file}")
+    except Exception as e:
+        raise Exception(f"Error reading urban built area file: {e}")
+    
+    # merge pg_df and uba_df on yearName to create pug
+    pug_df = pd.merge(pg_df, uba_df, on='yearName', how='inner')
+    print(f"✅ Successfully merged datasets: {len(pug_df)} overlapping years")
+    
+    if len(pug_df) == 0:
+        raise ValueError("No overlapping years found between population growth and urban built area data")
+    
+    # calculate density (population per unit area)
+    pug_df['density'] = (pug_df['population'] / pug_df['uba']).round(3)
+    
+    # calculate population-urban growth percentage ratio
+    # handle division by zero cases
+    mask = pug_df['ubaGrowthPercentage'] != 0
+    pug_df['populationUrbanGrowthRatio'] = None
+    pug_df.loc[mask, 'populationUrbanGrowthRatio'] = (
+        pug_df.loc[mask, 'populationGrowthPercentage'] / 
+        pug_df.loc[mask, 'ubaGrowthPercentage']
+    ).round(3)
+    
+    # reorder columns to match expected output structure
+    expected_columns = ['yearName', 'population', 'populationGrowthPercentage', 'year', 'uba', 
+                       'ubaGrowthPercentage', 'density', 'populationUrbanGrowthRatio']
+    
+    # ensure all expected columns exist
+    missing_columns = [col for col in expected_columns if col not in pug_df.columns]
+    if missing_columns:
+        print(f"⚠️  Warning: Missing expected columns: {missing_columns}")
+    
+    # reorder existing columns
+    available_columns = [col for col in expected_columns if col in pug_df.columns]
+    pug_df = pug_df[available_columns]
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/pug.csv'
+    
+    # save pug_df for population urban growth data to CSV
+    pug_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Years covered: {pug_df['yearName'].min()} - {pug_df['yearName'].max()}")
+    print(f"Total data points: {len(pug_df)}")
+    print(f"Population range: {pug_df['population'].min():,} - {pug_df['population'].max():,}")
+    print(f"UBA range: {pug_df['uba'].min():.2f} - {pug_df['uba'].max():.2f}")
+    print(f"Density range: {pug_df['density'].min():.1f} - {pug_df['density'].max():.1f}")
+    
+    # check for any missing ratios
+    missing_ratios = pug_df['populationUrbanGrowthRatio'].isna().sum()
+    if missing_ratios > 0:
+        print(f"⚠️  Note: {missing_ratios} missing growth ratios (likely due to zero UBA growth)")
+    
+    return pug_df
+
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -202,8 +297,10 @@ if __name__ == "__main__":
         clean_pas(input_file, output_file)
     elif 'wsft_stats' in input_file:
         clean_uba(input_file, output_file)
+    elif 'pug' in input_file:
+        clean_pug(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' or 'pug' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
