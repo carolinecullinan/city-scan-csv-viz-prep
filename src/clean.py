@@ -9,6 +9,7 @@ Takes csv files from existing City Scan tabular output and interim Scan Calculat
 import pandas as pd
 import sys
 
+# population growth
 def clean_pg(input_file, output_file=None):
     """
     clean up the population-growth.csv file for visualization as pg.csv.
@@ -57,6 +58,7 @@ def clean_pg(input_file, output_file=None):
     
     return result_df
 
+# population age sex
 def clean_pas(input_file, output_file=None):
     """
     clean up the population age structure csv file (i.e., 2025-02-city-country_02-process-output_tabular_city_demographics.csv) for visualization as pas.csv.
@@ -136,6 +138,7 @@ def clean_pas(input_file, output_file=None):
     
     return result_df
 
+# urban extent and change
 def clean_uba(input_file, output_file=None):
     """
     clean up the urban built area csv file (i.e., 20XX-0X-country-city_other_02-process-output_tabular_city_wsf_stats.csv) for visualization as uba.csv.
@@ -185,6 +188,7 @@ def clean_uba(input_file, output_file=None):
     
     return result_df
 
+# population urban growth (urban development dynamics matrix)
 def clean_pug(pg_file=None, uba_file=None, output_file=None):
     """
     clean up and merge population growth (pg.csv) and urban built area (uba.csv) data 
@@ -279,6 +283,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     return pug_df
 
+# photovoltaic potential
 def clean_pv(input_file, output_file=None):
     """
     clean up the monthly-pv.csv file for visualization as pv.csv.
@@ -338,6 +343,7 @@ def clean_pv(input_file, output_file=None):
     
     return result_df
 
+# flooding
 def clean_flood(input_file, output_dir=None):
     """
     clean up the 20XX-0X-country-city_02-process-output_tabular_city_flood_wsf.csv file and create separate output files for each flood type.
