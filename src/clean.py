@@ -279,12 +279,70 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     return pug_df
 
+def clean_pv(input_file, output_file=None):
+    """
+    clean up the monthly-pv.csv file for visualization as pv.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (monthly-pv.csv)
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the monthly photovoltaic CSV file
+    df = pd.read_csv(input_file)
+    
+    # create new dataframe with desired structure
+    # extract max values for each month to create the simplified pv.csv structure
+    result_df = pd.DataFrame({
+        'month': df['month'],
+        'monthName': df['month'].map({
+            1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+            7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+        }),
+        'maxPv': df['max'].round(2)  # round to 2 decimal places to match expected output
+    })
+    
+    # sort by month to ensure proper order
+    result_df = result_df.sort_values('month').reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/pv.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Months covered: {len(result_df)} months (full year)")
+    print(f"PV potential range: {result_df['maxPv'].min():.2f} - {result_df['maxPv'].max():.2f}")
+    print(f"Peak month: {result_df.loc[result_df['maxPv'].idxmax(), 'monthName']} ({result_df['maxPv'].max():.2f})")
+    print(f"Lowest month: {result_df.loc[result_df['maxPv'].idxmin(), 'monthName']} ({result_df['maxPv'].min():.2f})")
+    
+    # calculate seasonal insights
+    summer_months = result_df[result_df['month'].isin([6, 7, 8])]  # Jun, Jul, Aug
+    winter_months = result_df[result_df['month'].isin([12, 1, 2])]  # Dec, Jan, Feb
+    
+    summer_avg = summer_months['maxPv'].mean()
+    winter_avg = winter_months['maxPv'].mean()
+    seasonal_variation = ((summer_avg - winter_avg) / winter_avg) * 100
+    
+    print(f"Summer average (Jun-Aug): {summer_avg:.2f}")
+    print(f"Winter average (Dec-Feb): {winter_avg:.2f}")
+    print(f"Seasonal variation: {seasonal_variation:.1f}% higher in summer")
+    
+    return result_df
 
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -299,8 +357,10 @@ if __name__ == "__main__":
         clean_uba(input_file, output_file)
     elif 'pug' in input_file:
         clean_pug(input_file, output_file)
+    elif 'monthly-pv' in input_file:
+        clean_pv(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' or 'pug' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' or 'pug' or 'monthly-pv' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
