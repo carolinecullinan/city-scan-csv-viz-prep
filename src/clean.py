@@ -136,6 +136,55 @@ def clean_pas(input_file, output_file=None):
     
     return result_df
 
+def clean_uba(input_file, output_file=None):
+    """
+    clean up the urban built area csv file (i.e., 20XX-0X-country-city_other_02-process-output_tabular_cartagena_wsf_stats.csv) for visualization as uba.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the urban built area CSV file
+    df = pd.read_csv(input_file)
+    
+    # sort by year to ensure correct order
+    df = df.sort_values('year').reset_index(drop=True)
+    
+    # create new dataframe with desired structure
+    result_df = pd.DataFrame({
+        'year': range(1, len(df) + 1),  # sequential numbering starting from 1
+        'yearName': df['year'],
+        'uba': df['cumulative sq km'].round(2)  # round to 2 decimal places
+    })
+    
+    # calculate urban built area growth percentage
+    # growth percentage = ((current_year - previous_year) / previous_year) * 100
+    result_df['ubaGrowthPercentage'] = result_df['uba'].pct_change() * 100
+    
+    # round to 3 decimal places to match your example
+    result_df['ubaGrowthPercentage'] = result_df['ubaGrowthPercentage'].round(3)
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/uba.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Years covered: {result_df['yearName'].min()} - {result_df['yearName'].max()}")
+    print(f"Total data points: {len(result_df)}")
+    print(f"UBA range: {result_df['uba'].min():.2f} - {result_df['uba'].max():.2f} sq km")
+    
+    return result_df
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -151,8 +200,10 @@ if __name__ == "__main__":
         clean_pg(input_file, output_file)
     elif 'demographics' in input_file:
         clean_pas(input_file, output_file)
+    elif 'wsft_stats' in input_file:
+        clean_uba(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsft_stats' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
