@@ -1,0 +1,21 @@
+BEGAN,ENDED,DEAD,DISPLACED,MAINCAUSE,SEVERITY,severity,duration,fatalities,displaced,line1,line2,line3,text,mag,begin_day,end_day,begin_month,end_month,begin_year,end_year
+1988-08-16,1988-08-23,10,12000,Heavy rain,1,Large event,7 days,10 fatalities,"12,000 displaced",AUGUST 1988,"Large event, Heavy rain","7 days, 10 fatalities, 12,000 displaced","AUGUST 1988: Large event, Heavy rain
+7 days, 10 fatalities, 12,000 displaced",6e-4,229,236,8,8,1988.229,1988
+1988-08-27,1988-09-03,0,100000,Heavy rain,1,Large event,7 days,0 fatalities,"100,000 displaced",AUGUST 1988,"Large event, Heavy rain","7 days, 0 fatalities, 100,000 displaced",NA,0,240,247,8,9,1988.24,1988
+1999-09-12,1999-10-12,160,268200,Tropical cyclone,2,Extreme event,30 days,160 fatalities,"268,200 displaced",SEPTEMBER 1999,"Extreme event, Tropical cyclone","30 days, 160 fatalities, 268,200 displaced","SEPTEMBER 1999: Extreme event, Tropical cyclone
+30 days, 160 fatalities, 268,200 displaced",0.42912,255,285,9,10,1999.255,1999
+2000-09-20,2000-09-30,9,28000,Heavy rain,1,Large event,10 days,9 fatalities,"28,000 displaced",SEPTEMBER 2000,"Large event, Heavy rain","10 days, 9 fatalities, 28,000 displaced","SEPTEMBER 2000: Large event, Heavy rain
+10 days, 9 fatalities, 28,000 displaced",0.00126,264,274,9,9,2000.264,2000
+2003-11-29,2003-12-01,4,0,Heavy rain,1,Large event,2 days,4 fatalities,0 displaced,NOVEMBER 2003,"Large event, Heavy rain","2 days, 4 fatalities, 0 displaced",NA,0,333,335,11,12,2003.333,2003
+2004-10-11,2004-11-30,30,300000,Heavy rain,1,Large event,50 days,30 fatalities,"300,000 displaced",OCTOBER 2004,"Large event, Heavy rain","50 days, 30 fatalities, 300,000 displaced","OCTOBER 2004: Large event, Heavy rain
+50 days, 30 fatalities, 300,000 displaced",0.045,285,335,10,11,2004.285,2004
+2005-09-15,2005-12-16,95,100000,Heavy rain,1,Large event,92 days,95 fatalities,"100,000 displaced",SEPTEMBER 2005,"Large event, Heavy rain","92 days, 95 fatalities, 100,000 displaced","SEPTEMBER 2005: Large event, Heavy rain
+92 days, 95 fatalities, 100,000 displaced",0.0475,258,350,9,12,2005.258,2005
+2007-06-27,2007-09-10,43,700000,Heavy rain,1,Large event,75 days,43 fatalities,"700,000 displaced",JUNE 2007,"Large event, Heavy rain","75 days, 43 fatalities, 700,000 displaced","JUNE 2007: Large event, Heavy rain
+75 days, 43 fatalities, 700,000 displaced",0.1505,178,253,6,9,2007.178,2007
+2007-10-01,2007-12-10,90,266000,Heavy rain,1,Large event,70 days,90 fatalities,"266,000 displaced",OCTOBER 2007,"Large event, Heavy rain","70 days, 90 fatalities, 266,000 displaced","OCTOBER 2007: Large event, Heavy rain
+70 days, 90 fatalities, 266,000 displaced",0.1197,274,344,10,12,2007.274,2007
+2008-12-13,2008-12-14,2,0,Brief Torrential Rain,1,Large event,1 days,2 fatalities,0 displaced,DECEMBER 2008,"Large event, Brief Torrential Rain","1 days, 2 fatalities, 0 displaced",NA,0,348,349,12,12,2008.348,2008
+2010-11-15,2010-12-20,250,800000,Heavy Rain,1.5,Very large event,35 days,250 fatalities,"800,000 displaced",NOVEMBER 2010,"Very large event, Heavy Rain","35 days, 250 fatalities, 800,000 displaced","NOVEMBER 2010: Very large event, Heavy Rain
+35 days, 250 fatalities, 800,000 displaced",1.5,319,354,11,12,2010.319,2010
+2021-09-05,2021-09-26,0,6000,Heavy Rain,1,Large event,21 days,0 fatalities,"6,000 displaced",SEPTEMBER 2021,"Large event, Heavy Rain","21 days, 0 fatalities, 6,000 displaced",NA,0,248,269,9,9,2021.248,2021

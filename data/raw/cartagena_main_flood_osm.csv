@@ -1,0 +1,17 @@
+poi,type,total_pois,pois_in_flood_zone,percentage_in_flood_zone
+schools,coastal_2020,459,2,0.4357298474945534
+health,coastal_2020,55,0,0.0
+police,coastal_2020,34,2,5.88235294117647
+fire,coastal_2020,1,1,100.0
+schools,fluvial_2020,459,8,1.7429193899782136
+health,fluvial_2020,55,0,0.0
+police,fluvial_2020,34,0,0.0
+fire,fluvial_2020,1,0,0.0
+schools,pluvial_2020,459,102,22.22222222222222
+health,pluvial_2020,55,6,10.909090909090908
+police,pluvial_2020,34,7,20.588235294117645
+fire,pluvial_2020,1,0,0.0
+schools,comb_2020,459,110,23.965141612200437
+health,comb_2020,55,6,10.909090909090908
+police,comb_2020,34,9,26.47058823529412
+fire,comb_2020,1,1,100.0

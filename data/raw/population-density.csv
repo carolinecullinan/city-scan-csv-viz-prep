@@ -1,0 +1,13 @@
+Group,Location,Country,Year,Population,Source,Method,Area_km,Density
+Benchmark,Barranquilla,Colombia,2021,2345111,Oxford,Oxford,1384.86690778825,1693.3836651099862
+Benchmark,Cali,Colombia,2021,2628009,Oxford,Oxford,1631.15474424092,1611.1340811033717
+Benchmark,Bucaramanga,Colombia,2021,1221736,Oxford,Oxford,1227.99108202393,994.9062480049769
+Benchmark,Chiclayo,Peru,2021,763172.4,Oxford,Oxford,768.765543497423,992.724513286616
+Benchmark,Valencia (Venezuela),Venezuela,2021,1655052,Oxford,Oxford,2022.94688310951,818.1391285252079
+Benchmark,Maracay,Venezuela,2021,1336042,Oxford,Oxford,1651.07859125021,809.1934612200006
+Benchmark,Trujillo,Peru,2021,962591.5,Oxford,Oxford,1245.24041184012,773.016592496831
+Benchmark,Arequipa,Peru,2021,948564.3,Oxford,Oxford,1340.51058236609,707.6141825943076
+Cartagena,Cartagena,Colombia,2021,1259382,Oxford,Oxford,1981.20415494538,635.6649297632429
+Benchmark,Panama City,Panama,2021,1411138,Oxford,Oxford,2522.64828841425,559.3875319365462
+Benchmark,Guayana City,Venezuela,2021,810926.2999999999,Oxford,Oxford,1528.17152930532,530.6513597780694
+Benchmark,Barquisimeto,Venezuela,2021,1197453,Oxford,Oxford,3012.07928049981,397.5502928333614

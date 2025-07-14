@@ -349,6 +349,8 @@ def clean_flood(input_file, output_dir=None):
     clean up the 20XX-0X-country-city_02-process-output_tabular_city_flood_wsf.csv file and create separate output files for each flood type.
     Creates fu.csv (fluvial), pu.csv (pluvial), cu.csv (coastal), and comb.csv (combined)
     based on available data in the input file.
+
+    Note: flood-events.csv is not included as in input file because the csv is already cleaned and ready for visualization.
     
     parameters:
     -----------
