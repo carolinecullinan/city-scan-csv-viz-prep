@@ -449,11 +449,67 @@ def clean_flood(input_file, output_dir=None):
     
     return created_files
 
+def clean_ee(input_file, output_file=None):
+    """
+    clean up the earthquake-events.csv file for visualization as ee.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (earthquake-events.csv)
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the earthquake events CSV file
+    df = pd.read_csv(input_file)
+    
+    # extract year from BEGAN column (format appears to be YYYY-MM-DD)
+    df['begin_year'] = pd.to_datetime(df['BEGAN'], errors='coerce').dt.year
+    
+    # create new dataframe with desired structure
+    result_df = pd.DataFrame({
+        'begin_year': df['begin_year'],
+        'distance': df['distance'].round(0).astype('Int64'),  # round to whole numbers, handle NaN
+        'eqMagnitude': df['eqMagnitude'].round(1),  # round to 1 decimal place
+        'text': df['text'],
+        'line1': df['line1'],
+        'line2': df['line2'], 
+        'line3': df['line3']
+    })
+    
+    # remove rows with missing begin_year (invalid date parsing)
+    result_df = result_df.dropna(subset=['begin_year'])
+    
+    # convert begin_year to integer
+    result_df['begin_year'] = result_df['begin_year'].astype(int)
+    
+    # sort by year to ensure chronological order
+    result_df = result_df.sort_values('begin_year').reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/ee.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Earthquake events: {len(result_df)}")
+    print(f"Year range: {result_df['begin_year'].min()} - {result_df['begin_year'].max()}")
+    print(f"Magnitude range: {result_df['eqMagnitude'].min():.1f} - {result_df['eqMagnitude'].max():.1f}")
+    print(f"Distance range: {result_df['distance'].min()} - {result_df['distance'].max()} km")
+    
+    return result_df
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv, clean_flood")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv, clean_flood, clean_ee")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -472,8 +528,10 @@ if __name__ == "__main__":
         clean_pv(input_file, output_file)
     elif 'flood' in input_file:
         clean_flood(input_file, output_file)
+    elif 'earthquake-events' in input_file: 
+        clean_ee(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'pug' or 'monthly-pv' or 'flood' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
