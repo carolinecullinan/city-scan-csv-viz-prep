@@ -191,7 +191,7 @@ def clean_uba(input_file, output_file=None):
 # land cover
 def clean_lc(input_file, output_file=None):
     """
-    clean up the 20XX-0X-country-city_02-process-output_tabular_city_lc.csv file for visualization as lc.csv.
+    clean up the 20XX-02-country-city_02-process-output_tabular_city_lc.csv file for visualization as lc.csv.
     
     parameters:
     -----------
@@ -205,7 +205,11 @@ def clean_lc(input_file, output_file=None):
     df = pd.read_csv(input_file)
     
     # remove rows where Pixel Count is 0 (no coverage for that land type)
-    df_filtered = df[df['Pixel Count'] > 0].copy()
+    # also remove any "total" or summary rows that might be in the data
+    df_filtered = df[
+        (df['Pixel Count'] > 0) & 
+        (~df['Land Cover Type'].str.contains('total', case=False, na=False))
+    ].copy()
     
     # calculate total pixels for percentage calculation
     total_pixels = df_filtered['Pixel Count'].sum()
@@ -218,7 +222,7 @@ def clean_lc(input_file, output_file=None):
         'percentage': ((df_filtered['Pixel Count'] / total_pixels) * 100).round(2)
     })
     
-    # sort by percentage in descending order (where most common land cover is first)
+    # sort by percentage in descending order (most common land cover first)
     result_df = result_df.sort_values('percentage', ascending=False).reset_index(drop=True)
     
     # create output filename if not provided
