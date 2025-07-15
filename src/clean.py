@@ -188,6 +188,71 @@ def clean_uba(input_file, output_file=None):
     
     return result_df
 
+# land cover
+def clean_lc(input_file, output_file=None):
+    """
+    clean up the 20XX-0X-country-city_02-process-output_tabular_city_lc.csv file for visualization as lc.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (land cover data)
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the land cover CSV file
+    df = pd.read_csv(input_file)
+    
+    # remove rows where Pixel Count is 0 (no coverage for that land type)
+    df_filtered = df[df['Pixel Count'] > 0].copy()
+    
+    # calculate total pixels for percentage calculation
+    total_pixels = df_filtered['Pixel Count'].sum()
+    
+    # create new dataframe with desired structure
+    result_df = pd.DataFrame({
+        'lcType': df_filtered['Land Cover Type'],
+        'pixelCount': df_filtered['Pixel Count'].round(0).astype(int),
+        'pixelTotal': total_pixels,
+        'percentage': ((df_filtered['Pixel Count'] / total_pixels) * 100).round(2)
+    })
+    
+    # sort by percentage in descending order (where most common land cover is first)
+    result_df = result_df.sort_values('percentage', ascending=False).reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/lc.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Land cover types: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_pixels:,.0f}")
+    print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
+    
+    # identify dominant land cover types
+    dominant_type = result_df.iloc[0]
+    print(f"Dominant land cover: {dominant_type['lcType']} ({dominant_type['percentage']:.1f}%)")
+    
+    return result_df
+
+# Command line usage
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python clean.py input_file.csv [output_file.csv]")
+        print("Available functions: clean_pg, clean_pas, clean_pug, clean_pv, clean_flood, clean_ee, clean_lc")
+        print("For clean_pug: python clean.py pug [pg_file.csv] [uba_file.csv] [output_file.csv]")
+        print("For clean_flood: python clean.py flood_file.csv [output_directory]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+
 # population urban growth (urban development dynamics matrix)
 def clean_pug(pg_file=None, uba_file=None, output_file=None):
     """
@@ -509,7 +574,7 @@ def clean_ee(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_pug, clean_pv, clean_flood, clean_ee")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_ee")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -530,8 +595,10 @@ if __name__ == "__main__":
         clean_flood(input_file, output_file)
     elif 'earthquake-events' in input_file: 
         clean_ee(input_file, output_file)
+    elif 'lc' in input_file:
+        clean_lc(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
