@@ -574,11 +574,90 @@ def clean_ee(input_file, output_file=None):
     
     return result_df
 
+# fire weather index (fwi)
+def clean_fwi(input_file, output_file=None):
+    """
+    clean up the 20XX-02-country-city_02-process-output_tabular_city_fwi.csv file for visualization as fwi.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (fire weather index data)
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the fire weather index CSV file
+    df = pd.read_csv(input_file)
+    
+    # ISO 8601 standard week-to-month mapping
+    # Reference: ISO 8601:2004 Data elements and interchange formats
+    def get_month_name_iso(week):
+        """ISO 8601 standard week-to-month mapping"""
+        if week <= 4:
+            return 'Jan'
+        elif week <= 9:
+            return 'Feb'  
+        elif week <= 13:
+            return 'Mar'
+        elif week <= 17:
+            return 'Apr'
+        elif week <= 22:
+            return 'May'
+        elif week <= 26:
+            return 'Jun'
+        elif week <= 30:
+            return 'Jul'
+        elif week <= 35:
+            return 'Aug'
+        elif week <= 39:
+            return 'Sep'
+        elif week <= 43:
+            return 'Oct'
+        elif week <= 47:
+            return 'Nov'
+        else:  # weeks 48-53
+            return 'Dec'
+    
+    # create new dataframe with desired structure
+    result_df = pd.DataFrame({
+        'week': df['week'],
+        'monthName': df['week'].apply(get_month_name_iso),
+        'fwi': df['pctile_95'].round(2)  # round to 2 decimal places to match output
+    })
+    
+    # sort by week to ensure correct order
+    result_df = result_df.sort_values('week').reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/fwi.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Weeks covered: {len(result_df)} weeks")
+    print(f"Week range: {result_df['week'].min()} - {result_df['week'].max()}")
+    print(f"FWI range: {result_df['fwi'].min():.2f} - {result_df['fwi'].max():.2f}")
+    
+    # seasonal fire weather analysis using ISO standard
+    seasonal_stats = result_df.groupby('monthName')['fwi'].agg(['mean', 'max']).round(2)
+    peak_month = seasonal_stats['max'].idxmax()
+    peak_fwi = seasonal_stats['max'].max()
+    
+    print(f"Peak fire weather month: {peak_month} (max FWI: {peak_fwi:.2f})")
+    
+    return result_df
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_ee")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_ee, clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -601,8 +680,10 @@ if __name__ == "__main__":
         clean_ee(input_file, output_file)
     elif 'lc' in input_file:
         clean_lc(input_file, output_file)
+    elif 'fwi' in input_file:   
+        clean_fwi(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
