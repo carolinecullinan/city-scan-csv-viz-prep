@@ -592,6 +592,7 @@ def clean_fwi(input_file, output_file=None):
     
     # ISO 8601 standard week-to-month mapping
     # Reference: ISO 8601:2004 Data elements and interchange formats
+    # Source: https://www.iso.org/standard/40874.html
     def get_month_name_iso(week):
         """ISO 8601 standard week-to-month mapping"""
         if week <= 4:
@@ -619,11 +620,36 @@ def clean_fwi(input_file, output_file=None):
         else:  # weeks 48-53
             return 'Dec'
     
+    # Fire Weather Index danger classification
+    
+    # Source: https://climate-adapt.eea.europa.eu/en/metadata/indicators/fire-weather-index-monthly-mean-1979-2019
+    def categorize_danger(fwi):
+        """
+        Fire Weather Index danger classification system
+        Very low: < 5.2, Low: 5.2-11.2, Moderate: 11.2-21.3, 
+        High: 21.3-38.0, Very high: 38.0-50.0, Extreme: > 50.0
+        """
+        if pd.isna(fwi):
+            return 'Unknown'
+        elif fwi < 5.2:
+            return 'Very low'
+        elif fwi < 11.2:
+            return 'Low'
+        elif fwi < 21.3:
+            return 'Moderate'
+        elif fwi < 38.0:
+            return 'High'
+        elif fwi < 50.0:
+            return 'Very high'
+        else:
+            return 'Extreme'
+    
     # create new dataframe with desired structure
     result_df = pd.DataFrame({
         'week': df['week'],
         'monthName': df['week'].apply(get_month_name_iso),
-        'fwi': df['pctile_95'].round(2)  # round to 2 decimal places to match output
+        'fwi': df['pctile_95'].round(2),  # round to 2 decimal places to match output
+        'danger': df['pctile_95'].apply(categorize_danger)
     })
     
     # sort by week to ensure correct order
@@ -643,6 +669,14 @@ def clean_fwi(input_file, output_file=None):
     print(f"Weeks covered: {len(result_df)} weeks")
     print(f"Week range: {result_df['week'].min()} - {result_df['week'].max()}")
     print(f"FWI range: {result_df['fwi'].min():.2f} - {result_df['fwi'].max():.2f}")
+    
+    # danger level distribution
+    danger_counts = result_df['danger'].value_counts()
+    print(f"Danger level distribution:")
+    for level in ['Very low', 'Low', 'Moderate', 'High', 'Very high', 'Extreme']:
+        count = danger_counts.get(level, 0)
+        percentage = (count / len(result_df)) * 100
+        print(f"  {level}: {count} weeks ({percentage:.1f}%)")
     
     # seasonal fire weather analysis using ISO standard
     seasonal_stats = result_df.groupby('monthName')['fwi'].agg(['mean', 'max']).round(2)
