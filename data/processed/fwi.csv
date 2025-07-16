@@ -1,54 +1,54 @@
-week,monthName,fwi
-1,Jan,23.66
-2,Jan,24.5
-3,Jan,29.1
-4,Jan,31.58
-5,Feb,31.77
-6,Feb,36.42
-7,Feb,37.98
-8,Feb,39.05
-9,Feb,39.11
-10,Mar,37.26
-11,Mar,35.0
-12,Mar,37.1
-13,Mar,35.79
-14,Apr,27.3
-15,Apr,21.75
-16,Apr,12.67
-17,Apr,6.98
-18,May,8.6
-19,May,5.16
-20,May,4.73
-21,May,2.43
-22,May,2.87
-23,Jun,2.91
-24,Jun,3.67
-25,Jun,8.11
-26,Jun,9.37
-27,Jul,10.23
-28,Jul,8.64
-29,Jul,11.2
-30,Jul,5.96
-31,Aug,2.85
-32,Aug,4.7
-33,Aug,3.3
-34,Aug,3.61
-35,Aug,3.51
-36,Sep,0.84
-37,Sep,0.95
-38,Sep,0.88
-39,Sep,0.91
-40,Oct,0.95
-41,Oct,1.12
-42,Oct,1.7
-43,Oct,0.81
-44,Nov,0.79
-45,Nov,1.79
-46,Nov,1.22
-47,Nov,2.37
-48,Dec,4.89
-49,Dec,9.28
-50,Dec,13.18
-51,Dec,15.78
-52,Dec,19.92
-53,Dec,19.07
+week,monthName,fwi,danger
+1,Jan,23.66,High
+2,Jan,24.5,High
+3,Jan,29.1,High
+4,Jan,31.58,High
+5,Feb,31.77,High
+6,Feb,36.42,High
+7,Feb,37.98,High
+8,Feb,39.05,Very high
+9,Feb,39.11,Very high
+10,Mar,37.26,High
+11,Mar,35.0,High
+12,Mar,37.1,High
+13,Mar,35.79,High
+14,Apr,27.3,High
+15,Apr,21.75,High
+16,Apr,12.67,Moderate
+17,Apr,6.98,Low
+18,May,8.6,Low
+19,May,5.16,Very low
+20,May,4.73,Very low
+21,May,2.43,Very low
+22,May,2.87,Very low
+23,Jun,2.91,Very low
+24,Jun,3.67,Very low
+25,Jun,8.11,Low
+26,Jun,9.37,Low
+27,Jul,10.23,Low
+28,Jul,8.64,Low
+29,Jul,11.2,Low
+30,Jul,5.96,Low
+31,Aug,2.85,Very low
+32,Aug,4.7,Very low
+33,Aug,3.3,Very low
+34,Aug,3.61,Very low
+35,Aug,3.51,Very low
+36,Sep,0.84,Very low
+37,Sep,0.95,Very low
+38,Sep,0.88,Very low
+39,Sep,0.91,Very low
+40,Oct,0.95,Very low
+41,Oct,1.12,Very low
+42,Oct,1.7,Very low
+43,Oct,0.81,Very low
+44,Nov,0.79,Very low
+45,Nov,1.79,Very low
+46,Nov,1.22,Very low
+47,Nov,2.37,Very low
+48,Dec,4.89,Very low
+49,Dec,9.28,Low
+50,Dec,13.18,Moderate
+51,Dec,15.78,Moderate
+52,Dec,19.92,Moderate
+53,Dec,19.07,Moderate
