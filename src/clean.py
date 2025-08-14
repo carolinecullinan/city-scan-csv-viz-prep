@@ -246,6 +246,87 @@ def clean_lc(input_file, output_file=None):
     
     return result_df
 
+# elevation
+def clean_e(input_file, output_file=None):
+    """
+    clean up the elevation csv file for visualization as e.csv.
+    
+    parameters:
+    -----------
+    input_file : str
+        Path to the input csv file (elevation data)
+    output_file : str, optional
+        Path for output.
+    """
+    
+    # read the elevation csv file
+    df = pd.read_csv(input_file)
+    
+    # remove any total/summary rows and zero-count rows
+    df_filtered = df[
+        (~df['Bin'].astype(str).str.contains('total', case=False, na=False)) &
+        (df['Count'] > 0)
+    ].copy()
+    
+    # sort elevation bins properly (handles different elevation ranges for different cities)
+    def extract_elevation_value(bin_str):
+        """Extract numeric value from elevation bin for sorting"""
+        try:
+            # negative elevations (e.g., "-45")
+            if bin_str.startswith('-'):
+                return float(bin_str)
+            # range bins (e.g., "40-85", "130-175")
+            elif '-' in bin_str:
+                return float(bin_str.split('-')[0])
+            # single values
+            else:
+                return float(bin_str)
+        except (ValueError, AttributeError):
+            # if parsing fails, return a very high number to put it at the end
+            return 9999
+    
+    # add sorting column and sort by elevation
+    df_filtered['sort_value'] = df_filtered['Bin'].apply(extract_elevation_value)
+    df_filtered = df_filtered.sort_values('sort_value').reset_index(drop=True)
+    
+    # calculate total count for percentage calculation
+    total_count = df_filtered['Count'].sum()
+    
+    # create new df with desired structure for Observable Plot
+    result_df = pd.DataFrame({
+        'bin': df_filtered['Bin'],
+        'count': df_filtered['Count'].astype(int),
+        'percentage': ((df_filtered['Count'] / total_count) * 100).round(2)
+    })
+    
+    # create output filename if not provided
+    if output_file is None:
+        import os
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/e.csv' # saves to data/processed folder
+            
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    print(f"Cleaned data saved to: {output_file}")
+    print(f"Elevation bins: {len(result_df)}")
+    print(f"Elevation range: {result_df['bin'].iloc[0]} to {result_df['bin'].iloc[-1]}")
+    print(f"Total area analyzed: {total_count:,.0f} pixels")
+    print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
+    
+    # identify elevation distribution
+    dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
+    print(f"Dominant elevation range: {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
+    
+    # elevation range analysis (dynamic thresholds)
+    major_bins = result_df[result_df['percentage'] >= 10]  # bins with ≥10% coverage
+    if len(major_bins) > 0:
+        print(f"Major elevation ranges (≥10% coverage): {len(major_bins)} bins")
+        print(f"Major ranges: {', '.join(major_bins['bin'].tolist())}")
+    
+    return result_df
+
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -620,12 +701,12 @@ def clean_fwi(input_file, output_file=None):
         else:  # weeks 48-53
             return 'Dec'
     
-    # Fire Weather Index danger classification
-    
+    # Fire Weather Index danger (i.e., risk) classification
+
     # Source: https://climate-adapt.eea.europa.eu/en/metadata/indicators/fire-weather-index-monthly-mean-1979-2019
     def categorize_danger(fwi):
         """
-        Fire Weather Index danger classification system
+        Fire Weather Index danger (i.e., risk) classification system
         Very low: < 5.2, Low: 5.2-11.2, Moderate: 11.2-21.3, 
         High: 21.3-38.0, Very high: 38.0-50.0, Extreme: > 50.0
         """
@@ -691,7 +772,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_ee, clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_ee, clean_fwi, clean_e")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -716,8 +797,10 @@ if __name__ == "__main__":
         clean_lc(input_file, output_file)
     elif 'fwi' in input_file:   
         clean_fwi(input_file, output_file)
+    elif 'elevation' in input_file:
+        clean_e(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'earthquake-events' or 'fwi' or 'elevation' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
