@@ -246,182 +246,6 @@ def clean_lc(input_file, output_file=None):
     
     return result_df
 
-# # elevation
-# def clean_e(input_file, output_file=None):
-#     """
-#     clean up the elevation csv file for visualization as e.csv.
-    
-#     parameters:
-#     -----------
-#     input_file : str
-#         Path to the input csv file (elevation data)
-#     output_file : str, optional
-#         Path for output.
-#     """
-    
-#     # read the elevation csv file
-#     df = pd.read_csv(input_file)
-    
-#     # remove any total/summary rows and zero-count rows
-#     df_filtered = df[
-#         (~df['Bin'].astype(str).str.contains('total', case=False, na=False)) &
-#         (df['Count'] > 0)
-#     ].copy()
-    
-#     # sort elevation bins properly (handles different elevation ranges for different cities)
-#     def extract_elevation_value(bin_str):
-#         """Extract numeric value from elevation bin for sorting"""
-#         try:
-#             # negative elevations (e.g., "-45")
-#             if bin_str.startswith('-'):
-#                 return float(bin_str)
-#             # range bins (e.g., "40-85", "130-175")
-#             elif '-' in bin_str:
-#                 return float(bin_str.split('-')[0])
-#             # single values
-#             else:
-#                 return float(bin_str)
-#         except (ValueError, AttributeError):
-#             # if parsing fails, return a very high number to put it at the end
-#             return 9999
-    
-#     # add sorting column and sort by elevation
-#     df_filtered['sort_value'] = df_filtered['Bin'].apply(extract_elevation_value)
-#     df_filtered = df_filtered.sort_values('sort_value').reset_index(drop=True)
-    
-#     # calculate total count for percentage calculation
-#     total_count = df_filtered['Count'].sum()
-    
-#     # create new df with desired structure for Observable Plot
-#     result_df = pd.DataFrame({
-#         'bin': df_filtered['Bin'],
-#         'count': df_filtered['Count'].astype(int),
-#         'percentage': ((df_filtered['Count'] / total_count) * 100).round(2)
-#     })
-    
-#     # create output filename if not provided
-#     if output_file is None:
-#         import os
-#         # ensure the processed directory exists
-#         os.makedirs('data/processed', exist_ok=True)
-#         output_file = 'data/processed/e.csv' # saves to data/processed folder
-            
-#     # save the cleaned data
-#     result_df.to_csv(output_file, index=False)
-    
-#     print(f"Cleaned data saved to: {output_file}")
-#     print(f"Elevation bins: {len(result_df)}")
-#     print(f"Elevation range: {result_df['bin'].iloc[0]} to {result_df['bin'].iloc[-1]}")
-#     print(f"Total area analyzed: {total_count:,.0f} pixels")
-#     print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
-    
-#     # identify elevation distribution
-#     dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
-#     print(f"Dominant elevation range: {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
-    
-#     # elevation range analysis (dynamic thresholds)
-#     major_bins = result_df[result_df['percentage'] >= 10]  # bins with ≥10% coverage
-#     if len(major_bins) > 0:
-#         print(f"Major elevation ranges (≥10% coverage): {len(major_bins)} bins")
-#         print(f"Major ranges: {', '.join(major_bins['bin'].tolist())}")
-    
-#     return result_df
-
-# # slope
-# def clean_s(input_file, output_file=None):
-#     """
-#     clean up the slope csv file for visualization as s.csv.
-    
-#     parameters:
-#     -----------
-#     input_file : str
-#         Path to the input csv file (slope data)
-#     output_file : str, optional
-#         Path for output.
-#     """
-    
-#     # read the slope CSV file
-#     df = pd.read_csv(input_file)
-    
-#     # remove any total/summary rows and zero-count rows
-#     df_filtered = df[
-#         (~df['Bin'].astype(str).str.contains('total', case=False, na=False)) &
-#         (df['Count'] > 0)
-#     ].copy()
-    
-#     # sort slope bins properly (slope bins are consistent across cities)
-#     def extract_slope_value(bin_str):
-#         """Extract numeric value from slope bin for sorting"""
-#         try:
-#             # range bins (e.g., "0-2", "2-5", "5-10")
-#             if '-' in bin_str:
-#                 return float(bin_str.split('-')[0])
-#             # single values
-#             else:
-#                 return float(bin_str)
-#         except (ValueError, AttributeError):
-#             # if parsing fails, return a very high number to put it at the end
-#             return 9999
-    
-#     # add sorting column and sort by slope
-#     df_filtered['sort_value'] = df_filtered['Bin'].apply(extract_slope_value)
-#     df_filtered = df_filtered.sort_values('sort_value').reset_index(drop=True)
-    
-#     # calculate total count for percentage calculation
-#     total_count = df_filtered['Count'].sum()
-    
-#     # create new df
-#     result_df = pd.DataFrame({
-#         'bin': df_filtered['Bin'],
-#         'count': df_filtered['Count'].astype(int),
-#         'percentage': ((df_filtered['Count'] / total_count) * 100).round(2)
-#     })
-    
-#     # create output filename if not provided
-#     if output_file is None:
-#         import os
-#         # ensure the processed directory exists
-#         os.makedirs('data/processed', exist_ok=True)
-#         output_file = 'data/processed/s.csv' # save to data/processed folder
-            
-#     # save the cleaned data
-#     result_df.to_csv(output_file, index=False)
-    
-#     print(f"Cleaned data saved to: {output_file}")
-#     print(f"Slope bins: {len(result_df)}")
-#     print(f"Slope range: {result_df['bin'].iloc[0]} to {result_df['bin'].iloc[-1]} degrees")
-#     print(f"Total area analyzed: {total_count:,.0f} pixels")
-#     print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
-    
-#     # identify slope distribution
-#     dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
-#     print(f"Dominant slope range: {dominant_bin['bin']} degrees ({dominant_bin['percentage']:.1f}%)")
-    
-#     # slope range analysis
-#     flat_areas = result_df[result_df['bin'].str.contains('0-2|0-5', case=False, na=False)]
-#     if len(flat_areas) > 0:
-#         flat_percentage = flat_areas['percentage'].sum()
-#         print(f"Relatively flat areas (0-5 degrees): {flat_percentage:.1f}%")
-    
-#     steep_areas = result_df[result_df['percentage'] >= 5]  # bins with ≥5% coverage
-#     if len(steep_areas) > 0:
-#         print(f"Significant slope ranges (≥5% coverage): {len(steep_areas)} bins")
-#         print(f"Significant ranges: {', '.join(steep_areas['bin'].tolist())}")
-    
-#     return result_df
-
-
-# # Command line usage
-# if __name__ == "__main__":
-#     if len(sys.argv) < 2:
-#         print("Usage: python clean.py input_file.csv [output_file.csv]")
-#         print("Available functions: clean_pg, clean_pas, clean_pug, clean_pv, clean_flood, clean_ee, clean_lc")
-#         print("For clean_pug: python clean.py pug [pg_file.csv] [uba_file.csv] [output_file.csv]")
-#         print("For clean_flood: python clean.py flood_file.csv [output_directory]")
-#         sys.exit(1)
-    
-#     input_file = sys.argv[1]
-
 # population urban growth (urban development dynamics matrix)
 def clean_pug(pg_file=None, uba_file=None, output_file=None):
     """
@@ -517,7 +341,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     return pug_df
 
-# photovoltaic potential
+# photovoltaic
 def clean_pv(input_file, output_file=None):
     """
     clean up the monthly-pv.csv file for visualization as pv.csv.
@@ -533,6 +357,25 @@ def clean_pv(input_file, output_file=None):
     # read the monthly photovoltaic CSV file
     df = pd.read_csv(input_file)
     
+    # PV condition classification based on World Bank Global Solar Atlas standards
+    # Reference: World Bank Global Photovoltaic Power Potential by Country study
+    # https://www.worldbank.org/en/topic/energy/publication/solar-photovoltaic-power-potential-by-country
+    def categorize_pv_condition(maxpv):
+        """
+        PV condition classification based on World Bank/Solargis Global Solar Atlas:
+        - Excellent: >4.5 kWh/kWp
+        - Favorable: 3.5-4.5 kWh/kWp
+        - Less than Favorable: <3.5 kWh/kWp
+        """
+        if pd.isna(maxpv):
+            return 'Unknown'
+        elif maxpv > 4.5:
+            return 'Excellent'
+        elif maxpv >= 3.5:
+            return 'Favorable'
+        else:
+            return 'Less than Favorable'
+    
     # create new dataframe with desired structure
     # extract max values for each month to create the simplified pv.csv structure
     result_df = pd.DataFrame({
@@ -541,7 +384,8 @@ def clean_pv(input_file, output_file=None):
             1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
             7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
         }),
-        'maxPv': df['max'].round(2)  # round to 2 decimal places to match expected output
+        'maxPv': df['max'].round(2),  # round to 2 decimal places to match expected output
+        'condition': df['max'].apply(categorize_pv_condition)
     })
     
     # sort by month to ensure proper order
@@ -562,6 +406,13 @@ def clean_pv(input_file, output_file=None):
     print(f"PV potential range: {result_df['maxPv'].min():.2f} - {result_df['maxPv'].max():.2f}")
     print(f"Peak month: {result_df.loc[result_df['maxPv'].idxmax(), 'monthName']} ({result_df['maxPv'].max():.2f})")
     print(f"Lowest month: {result_df.loc[result_df['maxPv'].idxmin(), 'monthName']} ({result_df['maxPv'].min():.2f})")
+    
+    # condition distribution (World Bank classification)
+    condition_counts = result_df['condition'].value_counts()
+    print(f"PV condition distribution (World Bank standards):")
+    for condition in ['Excellent', 'Favorable', 'Less than Favorable']:
+        count = condition_counts.get(condition, 0)
+        print(f"  {condition}: {count} months")
     
     # calculate seasonal insights
     summer_months = result_df[result_df['month'].isin([6, 7, 8])]  # Jun, Jul, Aug
