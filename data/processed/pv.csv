@@ -1,4 +1,13 @@
-bin,condition,count,percentage
-(0-3.5),Less than Favorable,0,0.0
-(3.5-4.5),Favorable,604,60.46
-4.5+,Excellent,395,39.54
+month,monthName,maxPv,condition
+1,Jan,5.33,Excellent
+2,Feb,5.47,Excellent
+3,Mar,5.2,Excellent
+4,Apr,4.72,Excellent
+5,May,4.16,Favorable
+6,Jun,4.07,Favorable
+7,Jul,4.22,Favorable
+8,Aug,4.31,Favorable
+9,Sep,4.29,Favorable
+10,Oct,4.19,Favorable
+11,Nov,4.27,Favorable
+12,Dec,4.84,Excellent

@@ -504,7 +504,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     if output_file is None:
         # ensure the "processed" directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/pv.csv'
+        output_file = 'data/processed/pv_area.csv'
     
     # save cleaned data
     result_df.to_csv(output_file, index=False)
