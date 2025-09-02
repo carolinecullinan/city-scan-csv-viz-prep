@@ -470,9 +470,9 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     
     # define bins and conditions based on photovoltaic potential values
     bins = [
-        {"range": "(0-3.5)", "condition": "Less than Favorable", "min_val": 0, "max_val": 3.5},
-        {"range": "(3.5-4.5)", "condition": "Favorable", "min_val": 3.5, "max_val": 4.5},
-        {"range": "4.5+", "condition": "Excellent", "min_val": 4.5, "max_val": float('inf')}
+        {"range": "<3.5", "condition": "Less than Favorable", "min_val": 0, "max_val": 3.5},
+        {"range": "3.5-4.5", "condition": "Favorable", "min_val": 3.5, "max_val": 4.5},
+        {"range": ">4.5", "condition": "Excellent", "min_val": 4.5, "max_val": float('inf')}
     ]
     
     # count pixels in each bin
