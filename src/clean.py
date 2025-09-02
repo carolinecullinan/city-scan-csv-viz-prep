@@ -7,7 +7,11 @@ Takes csv files from existing City Scan tabular output and interim Scan Calculat
 """
 
 import pandas as pd
+import numpy as np
+import rasterio
+import os
 import sys
+from typing import Optional
 
 # population growth
 def clean_pg(input_file, output_file=None):
@@ -341,7 +345,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     return pug_df
 
-# photovoltaic
+# photovoltaic (monthly max pv potential)
 def clean_pv(input_file, output_file=None):
     """
     clean up the monthly-pv.csv file for visualization as pv.csv.
@@ -425,6 +429,99 @@ def clean_pv(input_file, output_file=None):
     print(f"Summer average (Jun-Aug): {summer_avg:.2f}")
     print(f"Winter average (Dec-Feb): {winter_avg:.2f}")
     print(f"Seasonal variation: {seasonal_variation:.1f}% higher in summer")
+    
+    return result_df
+
+# photovoltaic (% area with different pv conditions - "Excellent (4+5)","Favorable (3.5-4.5)","Less than Favorable (<3.5)")
+def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
+    """
+    process photovoltaic potential TIF (i.e., solar.tif) data into cleaned csv, pv_area.csv for visualization.
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file (photovoltaic potential data)
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/pv_area.csv'
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, condition, count, percentage
+    """
+    
+    try:
+        # read the TIF file
+        with rasterio.open(input_tif_file) as src:
+            # read the data as a numpy array
+            pv_data = src.read(1)  # read first band
+            
+            # get valid data (exclude "NoData" values)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = pv_data[pv_data != nodata_value]
+            else:
+                # if no explicit, "NoData" value, exclude NaN and very large/small values
+                valid_data = pv_data[~np.isnan(pv_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # define bins and conditions based on photovoltaic potential values
+    bins = [
+        {"range": "(0-3.5)", "condition": "Less than Favorable", "min_val": 0, "max_val": 3.5},
+        {"range": "(3.5-4.5)", "condition": "Favorable", "min_val": 3.5, "max_val": 4.5},
+        {"range": "4.5+", "condition": "Excellent", "min_val": 4.5, "max_val": float('inf')}
+    ]
+    
+    # count pixels in each bin
+    bin_data = []
+    total_pixels = len(valid_data)
+    
+    for bin_info in bins:
+        if bin_info["max_val"] == float('inf'):
+            # for the "4.5+" (i.e., "Excellent") category
+            count = np.sum(valid_data >= bin_info["min_val"])
+        else:
+            # for ranges with upper bounds
+            count = np.sum((valid_data >= bin_info["min_val"]) & (valid_data < bin_info["max_val"]))
+        
+        bin_data.append({
+            'bin': bin_info["range"],
+            'condition': bin_info["condition"],
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create dataframe
+    result_df = pd.DataFrame(bin_data)
+    
+    # filter out bins with zero count (optional)
+    # result_df = result_df[result_df['count'] > 0].copy()
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure the "processed" directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/pv.csv'
+    
+    # save cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation and reporting
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned PV data saved to: {output_file}")
+    print(f"PV potential bins: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominant condition
+    if len(result_df) > 0:
+        dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
+        print(f"Dominant PV condition: {dominant_bin['condition']} - {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
     
     return result_df
 
@@ -901,6 +998,8 @@ if __name__ == "__main__":
         clean_pug(input_file, output_file)
     elif 'monthly-pv' in input_file:
         clean_pv(input_file, output_file)
+    elif 'pv_area' in input_file:
+        clean_pv_area(input_file, output_file)
     elif 'flood' in input_file:
         clean_flood(input_file, output_file)
     elif 'elevation' in input_file:
@@ -914,6 +1013,6 @@ if __name__ == "__main__":
 
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'flood' or 'elevation' or 'slope' or 'earthquake-events' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'earthquake-events' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
