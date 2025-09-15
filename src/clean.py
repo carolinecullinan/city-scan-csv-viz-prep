@@ -142,7 +142,7 @@ def clean_pas(input_file, output_file=None):
     
     return result_df
 
-# urban extent and change
+# urban extent and change (cumulative kmˆ2 over time)
 def clean_uba(input_file, output_file=None):
     """
     clean up the urban built area csv file (i.e., 20XX-0X-country-city_other_02-process-output_tabular_city_wsf_stats.csv) for visualization as uba.csv.
@@ -189,6 +189,113 @@ def clean_uba(input_file, output_file=None):
     print(f"Years covered: {result_df['yearName'].min()} - {result_df['yearName'].max()}")
     print(f"Total data points: {len(result_df)}")
     print(f"UBA range: {result_df['uba'].min():.2f} - {result_df['uba'].max():.2f} sq km")
+    
+    return result_df
+
+# urban extent and change (percentage area with different years of urban expansion, "Before 1985", "1986-1995", "1996-2005", and "2006-2015")
+def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
+    """
+    process urban built-up area expansion TIF file (i.e., city_wsf_evolution_projection.tif) into cleaned CSV, uba_area.csv format for visualization.
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file (urban expansion year data)
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/uba.csv'
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, year, count, percentage
+    """
+    
+    try:
+        # read the TIF file
+        with rasterio.open(input_tif_file) as src:
+            # read the data as a numpy array
+            uba_data = src.read(1)  # Read first band
+            
+            # get valid data (exclude NoData values)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = uba_data[uba_data != nodata_value]
+            else:
+                # if no explicit nodata value, exclude NaN and very large/small values
+                valid_data = uba_data[~np.isnan(uba_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+            
+            # filter out unrealistic year values (assuming reasonable range 1900-2030)
+            valid_data = valid_data[(valid_data >= 1900) & (valid_data <= 2030)]
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # define bins for urban expansion years
+    bins = [
+        {"range": "Before 1985", "min_year": 0, "max_year": 1985},
+        {"range": "1986-1995", "min_year": 1986, "max_year": 1995},
+        {"range": "1996-2005", "min_year": 1996, "max_year": 2005},
+        {"range": "2006-2015", "min_year": 2006, "max_year": 2015}
+    ]
+    
+    # count pixels in each bin
+    bin_data = []
+    total_pixels = len(valid_data)
+    
+    for bin_info in bins:
+        if bin_info["range"] == "Before 1985":
+            # for "Before 1985" category, include all years <= 1985
+            count = np.sum(valid_data <= bin_info["max_year"])
+        else:
+            # for specific ranges
+            count = np.sum((valid_data >= bin_info["min_year"]) & (valid_data <= bin_info["max_year"]))
+        
+        # calculate representative year for the bin (midpoint or boundary)
+        if bin_info["range"] == "Before 1985":
+            representative_year = "≤1985"
+        else:
+            representative_year = f"{bin_info['min_year']}-{bin_info['max_year']}"
+        
+        bin_data.append({
+            'bin': bin_info["range"],
+            'year': representative_year,
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create DataFrame
+    result_df = pd.DataFrame(bin_data)
+    
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/uba.csv'
+    
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation and reporting
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned UBA data saved to: {output_file}")
+    print(f"Urban expansion periods: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # identify dominant expansion period
+    if len(result_df) > 0:
+        dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
+        print(f"Dominant expansion period: {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
+    
+    # show year range in data
+    if len(valid_data) > 0:
+        min_year = int(valid_data.min())
+        max_year = int(valid_data.max())
+        print(f"Year range in data: {min_year} - {max_year}")
     
     return result_df
 
@@ -435,7 +542,7 @@ def clean_pv(input_file, output_file=None):
 # photovoltaic (% area with different pv conditions - "Excellent (4+5)","Favorable (3.5-4.5)","Less than Favorable (<3.5)")
 def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    process photovoltaic potential TIF (i.e., solar.tif) data into cleaned csv, pv_area.csv for visualization.
+    process photovoltaic potential TIF file (i.e., solar.tif) into cleaned csv, pv_area.csv for visualization.
     
     Parameters:
     -----------
