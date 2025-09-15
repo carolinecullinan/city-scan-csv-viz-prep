@@ -272,7 +272,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     if output_file is None:
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/uba.csv'
+        output_file = 'data/processed/uba_area.csv'
     
     # save the cleaned data
     result_df.to_csv(output_file, index=False)
@@ -382,7 +382,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     # read pg.csv and uba.csv
     try:
         pg_df = pd.read_csv(pg_file)
-        print(f"✅ Successfully loaded population growth data: {len(pg_df)} records")
+        print(f"Successfully loaded population growth data: {len(pg_df)} records")
     except FileNotFoundError:
         raise FileNotFoundError(f"Population growth file not found: {pg_file}")
     except Exception as e:
@@ -390,7 +390,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     try:
         uba_df = pd.read_csv(uba_file)
-        print(f"✅ Successfully loaded urban built area data: {len(uba_df)} records")
+        print(f"Successfully loaded urban built area data: {len(uba_df)} records")
     except FileNotFoundError:
         raise FileNotFoundError(f"Urban built area file not found: {uba_file}")
     except Exception as e:
@@ -398,7 +398,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     
     # merge pg_df and uba_df on yearName to create pug
     pug_df = pd.merge(pg_df, uba_df, on='yearName', how='inner')
-    print(f"✅ Successfully merged datasets: {len(pug_df)} overlapping years")
+    print(f"Successfully merged datasets: {len(pug_df)} overlapping years")
     
     if len(pug_df) == 0:
         raise ValueError("No overlapping years found between population growth and urban built area data")
@@ -448,7 +448,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
     # check for any missing ratios
     missing_ratios = pug_df['populationUrbanGrowthRatio'].isna().sum()
     if missing_ratios > 0:
-        print(f"⚠️  Note: {missing_ratios} missing growth ratios (likely due to zero UBA growth)")
+        print(f"Note: {missing_ratios} missing growth ratios (likely due to zero UBA growth)")
     
     return pug_df
 
@@ -1097,8 +1097,10 @@ if __name__ == "__main__":
         clean_pg(input_file, output_file)
     elif 'demographics' in input_file:
         clean_pas(input_file, output_file)
-    elif 'wsft_stats' in input_file:
+    elif 'wsf_stats' in input_file: #wsft_stats, typo: fixed 15sept2025, 6:48 PM CEST
         clean_uba(input_file, output_file)
+    elif 'wsf_evolution' in input_file:
+        clean_uba_area(input_file, output_file)
     elif 'lc' in input_file:
         clean_lc(input_file, output_file)
     elif 'pug' in input_file:
@@ -1120,6 +1122,6 @@ if __name__ == "__main__":
 
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'earthquake-events' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'earthquake-events' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
