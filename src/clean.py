@@ -26,7 +26,7 @@ def clean_pg(input_file, output_file=None):
         Path for output.
     """
     
-    # read the population growth CSV file
+    # read the population growth csv file
     df = pd.read_csv(input_file)
     
     # sort by year to ensure correct order
@@ -75,10 +75,10 @@ def clean_pas(input_file, output_file=None):
         Path for output.
     """
     
-    # read the population age structure CSV file
+    # read the population age structure csv file
     df = pd.read_csv(input_file)
     
-    # combine 0-1 and 1-4 age brackets into 0-4
+    # combine "0-1" and "1-4" age brackets into "0-4"
     df['age_group'] = df['age_group'].replace({'0-1': '0-4', '1-4': '0-4'})
     
     # group by the new age brackets and sex, summing the population
@@ -113,14 +113,14 @@ def clean_pas(input_file, output_file=None):
     try:
         result_df['age_sort'] = pd.Categorical(result_df['ageBracket'], categories=existing_categories, ordered=True)
         result_df = result_df.sort_values(['age_sort', 'sex']).drop('age_sort').reset_index(drop=True)
-        # remove the temporary age_sort column - ensure it's dropped
+        # remove the temporary "age_sort" column - ensure it's dropped
         if 'age_sort' in result_df.columns:
             result_df = result_df.drop('age_sort', axis=1)
     except Exception as e:
-        print(f"⚠️  Warning: Could not sort by age bracket ({e}). Using default sorting.")
+        print(f"Warning: Could not sort by age bracket ({e}). Using default sorting.")
         result_df = result_df.sort_values(['ageBracket', 'sex']).reset_index(drop=True)
     
-   # final check to ensure age_sort column is not in the output
+   # final check to ensure "age_sort" column is not in the output
     if 'age_sort' in result_df.columns:
         result_df = result_df.drop('age_sort', axis=1)
    
@@ -155,7 +155,7 @@ def clean_uba(input_file, output_file=None):
         Path for output.
     """
     
-    # read the urban built area CSV file
+    # read the urban built area csv file
     df = pd.read_csv(input_file)
     
     # sort by year to ensure correct order
@@ -172,7 +172,7 @@ def clean_uba(input_file, output_file=None):
     # growth percentage = ((current_year - previous_year) / previous_year) * 100
     result_df['ubaGrowthPercentage'] = result_df['uba'].pct_change() * 100
     
-    # round to 3 decimal places to match your example
+    # round to 3 decimal places
     result_df['ubaGrowthPercentage'] = result_df['ubaGrowthPercentage'].round(3)
     
     # create output filename if not provided
@@ -180,7 +180,7 @@ def clean_uba(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/uba.csv' # saves to data/processed folder
+        output_file = 'data/processed/uba.csv'
             
     # save the cleaned data
     result_df.to_csv(output_file, index=False)
@@ -211,17 +211,17 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     """
     
     try:
-        # read the TIF file
+        # read tif file
         with rasterio.open(input_tif_file) as src:
             # read the data as a numpy array
-            uba_data = src.read(1)  # Read first band
+            uba_data = src.read(1)  # read first band
             
-            # get valid data (exclude NoData values)
+            # get valid data (exclude "NoData" values)
             nodata_value = src.nodata
             if nodata_value is not None:
                 valid_data = uba_data[uba_data != nodata_value]
             else:
-                # if no explicit nodata value, exclude NaN and very large/small values
+                # if no explicit "nodata" value, exclude "NaN" and very large/small values
                 valid_data = uba_data[~np.isnan(uba_data)]
                 valid_data = valid_data[np.isfinite(valid_data)]
             
@@ -264,7 +264,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
             'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
         })
     
-    # create DataFrame
+    # create dataframe
     result_df = pd.DataFrame(bin_data)
     
     
@@ -274,7 +274,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
         os.makedirs('data/processed', exist_ok=True)
         output_file = 'data/processed/uba_area.csv'
     
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     # basic validation and reporting
@@ -312,10 +312,10 @@ def clean_lc(input_file, output_file=None):
         Path for output.
     """
     
-    # read the land cover CSV file
+    # read the land cover csv file
     df = pd.read_csv(input_file)
     
-    # remove rows where Pixel Count is 0 (no coverage for that land type)
+    # remove rows where "Pixel Count" is "0" (no coverage for that land type)
     # also remove any "total" or summary rows that might be in the data
     df_filtered = df[
         (df['Pixel Count'] > 0) & 
@@ -341,9 +341,9 @@ def clean_lc(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/lc.csv' # saves to data/processed folder
+        output_file = 'data/processed/lc.csv'
             
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -435,7 +435,7 @@ def clean_pug(pg_file=None, uba_file=None, output_file=None):
         os.makedirs('data/processed', exist_ok=True)
         output_file = 'data/processed/pug.csv'
     
-    # save pug_df for population urban growth data to CSV
+    # save pug_df for population urban growth data to csv
     pug_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -465,7 +465,7 @@ def clean_pv(input_file, output_file=None):
         Path for output.
     """
     
-    # read the monthly photovoltaic CSV file
+    # read the monthly photovoltaic csv file
     df = pd.read_csv(input_file)
     
     # PV condition classification based on World Bank Global Solar Atlas standards
@@ -495,7 +495,7 @@ def clean_pv(input_file, output_file=None):
             1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
             7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
         }),
-        'maxPv': df['max'].round(2),  # round to 2 decimal places to match expected output
+        'maxPv': df['max'].round(2),  # round to 2 decimal places 
         'condition': df['max'].apply(categorize_pv_condition)
     })
     
@@ -507,9 +507,9 @@ def clean_pv(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/pv.csv' # saves to data/processed folder
+        output_file = 'data/processed/pv.csv'
             
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -558,9 +558,9 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     """
     
     try:
-        # read the TIF file
+        # read the tif file
         with rasterio.open(input_tif_file) as src:
-            # read the data as a numpy array
+            # read data as a numpy array
             pv_data = src.read(1)  # read first band
             
             # get valid data (exclude "NoData" values)
@@ -568,7 +568,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
             if nodata_value is not None:
                 valid_data = pv_data[pv_data != nodata_value]
             else:
-                # if no explicit, "NoData" value, exclude NaN and very large/small values
+                # if no explicit, "NoData" value, exclude "NaN" and very large/small values
                 valid_data = pv_data[~np.isnan(pv_data)]
                 valid_data = valid_data[np.isfinite(valid_data)]
     
@@ -604,7 +604,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     # create dataframe
     result_df = pd.DataFrame(bin_data)
     
-    # filter out bins with zero count (optional)
+    # filter out bins with zero count
     # result_df = result_df[result_df['count'] > 0].copy()
     
     # create output filename if not provided
@@ -649,7 +649,7 @@ def clean_flood(input_file, output_dir=None):
         Directory for output files (default: 'data/processed/')
     """
     
-    # read the flood data CSV file
+    # read the flood data csv file
     df = pd.read_csv(input_file)
     
     # set default output directory
@@ -687,7 +687,7 @@ def clean_flood(input_file, output_dir=None):
         if flood_type in flood_mappings:
             short_name, filename = flood_mappings[flood_type]
             
-            # create dataframe for this flood type
+            # create dataframe for flood type
             result_df = pd.DataFrame({
                 'year': range(1, len(df) + 1),  # sequential numbering starting from 1
                 'yearName': df['year'],  # actual year from input
@@ -697,16 +697,16 @@ def clean_flood(input_file, output_dir=None):
             # sort by year to ensure correct order
             result_df = result_df.sort_values('yearName').reset_index(drop=True)
             
-            # save to CSV
+            # save to csv
             output_path = os.path.join(output_dir, filename)
             result_df.to_csv(output_path, index=False)
             created_files.append(filename)
             
-            print(f"✅ Created {filename}: {len(result_df)} records")
+            print(f"Created {filename}: {len(result_df)} records")
             print(f"   Year range: {result_df['yearName'].min()} - {result_df['yearName'].max()}")
             print(f"   {short_name.upper()} range: {result_df[short_name].min():.2f} - {result_df[short_name].max():.2f}")
     
-    # summary report
+    # summary
     print(f"\nFlood Risk Data Processing Summary:")
     print(f"- Input file: {input_file}")
     print(f"- Output directory: {output_dir}")
@@ -741,7 +741,7 @@ def clean_flood(input_file, output_dir=None):
 # elevation
 def clean_e(input_file, output_file=None):
     """
-    clean up the elevation csv file for visualization as e.csv.
+    clean up the elevation csv file (i.e., elevation.csv) for visualization as e.csv.
     
     parameters:
     -----------
@@ -760,7 +760,7 @@ def clean_e(input_file, output_file=None):
         (df['Count'] > 0)
     ].copy()
     
-    # sort elevation bins properly (handles different elevation ranges for different cities)
+    # sort elevation bins (handles different elevation ranges for different cities)
     def extract_elevation_value(bin_str):
         """Extract numeric value from elevation bin for sorting"""
         try:
@@ -796,7 +796,7 @@ def clean_e(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/e.csv' # saves to data/processed folder
+        output_file = 'data/processed/e.csv' 
             
     # save the cleaned data
     result_df.to_csv(output_file, index=False)
@@ -822,8 +822,8 @@ def clean_e(input_file, output_file=None):
 # slope
 def clean_s(input_file, output_file=None):
     """
-    clean up the slope csv file for visualization as s.csv.
-    
+    clean up the slope csv file (i.e. city_slope.csv) for visualization as s.csv.
+
     parameters:
     -----------
     input_file : str
@@ -832,7 +832,7 @@ def clean_s(input_file, output_file=None):
         Path for output.
     """
     
-    # read the slope CSV file
+    # read the slope csv file
     df = pd.read_csv(input_file)
     
     # remove any total/summary rows and zero-count rows
@@ -841,7 +841,7 @@ def clean_s(input_file, output_file=None):
         (df['Count'] > 0)
     ].copy()
     
-    # sort slope bins properly (slope bins are consistent across cities)
+    # sort slope bins
     def extract_slope_value(bin_str):
         """Extract numeric value from slope bin for sorting"""
         try:
@@ -874,9 +874,9 @@ def clean_s(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/s.csv' # save to data/processed folder
+        output_file = 'data/processed/s.csv'
             
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -906,8 +906,8 @@ def clean_s(input_file, output_file=None):
 
 def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, include_nodata: bool = False) -> pd.DataFrame:
     """
-    process landslide susceptibility TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_landslide.tif) into cleaned csv, ls_area.csv for visualization.
-  
+    process landslide susceptibility TIF file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_landslide.tif) into cleaned csv, ls_area.csv for visualization.
+
     Parameters:
     -----------
     input_tif_file : str
@@ -924,7 +924,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     """
     
     try:
-        # read TIF file
+        # read tif file
         with rasterio.open(input_tif_file) as src:
             # read data as a numpy array
             landslide_data = src.read(1)  # read first band
@@ -992,10 +992,10 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
             'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
         })
     
-    # create dataframe
+    # create df
     result_df = pd.DataFrame(bin_data)
     
-    # filter out bins with zero count (removed for now)
+    # filter out bins with zero count
     # result_df = result_df[result_df['count'] > 0].copy()
     
     # sort by susceptibility level (i.e., "Very low" to "Very high")
@@ -1043,16 +1043,16 @@ def clean_ee(input_file, output_file=None):
         Path for output.
     """
     
-    # read the earthquake events CSV file
+    # read the earthquake events csv file
     df = pd.read_csv(input_file)
     
-    # extract year from BEGAN column (format appears to be YYYY-MM-DD)
+    # extract year from BEGAN column (format appears to be yyyy-mm-dd)
     df['begin_year'] = pd.to_datetime(df['BEGAN'], errors='coerce').dt.year
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     result_df = pd.DataFrame({
         'begin_year': df['begin_year'],
-        'distance': df['distance'].round(0).astype('Int64'),  # round to whole numbers, handle NaN
+        'distance': df['distance'].round(0).astype('Int64'),  # round to whole numbers, handle "NaN"
         'eqMagnitude': df['eqMagnitude'].round(1),  # round to 1 decimal place
         'text': df['text'],
         'line1': df['line1'],
@@ -1060,10 +1060,10 @@ def clean_ee(input_file, output_file=None):
         'line3': df['line3']
     })
     
-    # remove rows with missing begin_year (invalid date parsing)
+    # remove rows with missing "begin_year" (invalid date parsing)
     result_df = result_df.dropna(subset=['begin_year'])
     
-    # convert begin_year to integer
+    # convert "begin_year" to integer
     result_df['begin_year'] = result_df['begin_year'].astype(int)
     
     # sort by year to ensure chronological order
@@ -1074,9 +1074,9 @@ def clean_ee(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/ee.csv' # saves to data/processed folder
+        output_file = 'data/processed/ee.csv'
             
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -1090,7 +1090,7 @@ def clean_ee(input_file, output_file=None):
 # fire weather index (fwi)
 def clean_fwi(input_file, output_file=None):
     """
-    clean up the 20XX-02-country-city_02-process-output_tabular_city_fwi.csv file for visualization as fwi.csv.
+    clean up 20XX-02-country-city_02-process-output_tabular_city_fwi.csv file for visualization as fwi.csv.
     
     parameters:
     -----------
@@ -1100,7 +1100,7 @@ def clean_fwi(input_file, output_file=None):
         Path for output.
     """
     
-    # read the fire weather index CSV file
+    # read the fire weather index csv file
     df = pd.read_csv(input_file)
     
     # ISO 8601 standard week-to-month mapping
@@ -1157,11 +1157,11 @@ def clean_fwi(input_file, output_file=None):
         else:
             return 'Extreme'
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     result_df = pd.DataFrame({
         'week': df['week'],
         'monthName': df['week'].apply(get_month_name_iso),
-        'fwi': df['pctile_95'].round(2),  # round to 2 decimal places to match output
+        'fwi': df['pctile_95'].round(2),  # round to 2 decimal places
         'danger': df['pctile_95'].apply(categorize_danger)
     })
     
@@ -1173,9 +1173,9 @@ def clean_fwi(input_file, output_file=None):
         import os
         # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
-        output_file = 'data/processed/fwi.csv' # saves to data/processed folder
+        output_file = 'data/processed/fwi.csv'
             
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     print(f"Cleaned data saved to: {output_file}")
@@ -1200,22 +1200,11 @@ def clean_fwi(input_file, output_file=None):
     
     return result_df
 
-# # Command line usage
-# if __name__ == "__main__":
-#     if len(sys.argv) < 2:
-#         print("Usage: python clean.py input_file.csv [output_file.csv]")
-#         print("Available functions: clean_pg, clean_pas, clean_pug, clean_ubaclean_pv, clean_flood, clean_ee, clean_lc")
-#         print("For clean_pug: python clean.py pug [pg_file.csv] [uba_file.csv] [output_file.csv]")
-#         print("For clean_flood: python clean.py flood_file.csv [output_directory]")
-#         sys.exit(1)
-    
-#     input_file = sys.argv[1]
-
 # Command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_lc, clean_pug, clean_pv, clean_flood, clean_e, clean_s, clean_ee, clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_areaclean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1244,6 +1233,8 @@ if __name__ == "__main__":
         clean_e(input_file, output_file)
     elif 'slope' in input_file:
         clean_s(input_file, output_file)
+    elif 'landslide' in input_file:
+        clean_ls_area(input_file, output_file)
     elif 'earthquake-events' in input_file: 
         clean_ee(input_file, output_file)
     elif 'fwi' in input_file:   
@@ -1251,6 +1242,6 @@ if __name__ == "__main__":
 
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'earthquake-events' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
