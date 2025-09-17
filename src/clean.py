@@ -200,9 +200,9 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     Parameters:
     -----------
     input_tif_file : str
-        Path to the input TIF file (urban expansion year data)
+        Path to the input TIF file
     output_file : str, optional
-        Path for output CSV file. If None, saves to 'data/processed/uba.csv'
+        Path for output CSV file. If None, saves to 'data/processed/uba_area.csv'
     
     Returns:
     --------
@@ -286,7 +286,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     print(f"Total pixels analyzed: {total_count:,.0f}")
     print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
     
-    # identify dominant expansion period
+    # ID dominant expansion period
     if len(result_df) > 0:
         dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
         print(f"Dominant expansion period: {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
@@ -307,7 +307,7 @@ def clean_lc(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (land cover data)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
@@ -351,7 +351,7 @@ def clean_lc(input_file, output_file=None):
     print(f"Total pixels analyzed: {total_pixels:,.0f}")
     print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
     
-    # identify dominant land cover types
+    # ID dominant land cover types
     dominant_type = result_df.iloc[0]
     print(f"Dominant land cover: {dominant_type['lcType']} ({dominant_type['percentage']:.1f}%)")
     
@@ -460,7 +460,7 @@ def clean_pv(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (monthly-pv.csv)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
@@ -547,7 +547,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     Parameters:
     -----------
     input_tif_file : str
-        Path to the input TIF file (photovoltaic potential data)
+        Path to the input TIF file
     output_file : str, optional
         Path for output CSV file. If None, saves to 'data/processed/pv_area.csv'
     
@@ -644,7 +644,7 @@ def clean_flood(input_file, output_dir=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (flood data)
+        Path to the input csv file
     output_dir : str, optional
         Directory for output files (default: 'data/processed/')
     """
@@ -658,7 +658,7 @@ def clean_flood(input_file, output_dir=None):
         output_dir = 'data/processed'
         os.makedirs(output_dir, exist_ok=True)
     
-    # identify available flood types based on column names
+    # ID available flood types based on column names
     available_flood_types = {}
     
     # check for each flood type (looking for columns ending with _2020)
@@ -728,7 +728,7 @@ def clean_flood(input_file, output_dir=None):
             print(f"  Average: {avg_risk:.2f}, Range: {min_risk:.2f} - {max_risk:.2f}")
             print(f"  Trend (1985-2015): {trend:+.2f} ({'+increase' if trend > 0 else 'decrease' if trend < 0 else 'stable'})")
         
-        # identify highest risk type
+        # ID highest risk type
         latest_year_risks = {}
         for flood_type, column_name in available_flood_types.items():
             latest_year_risks[flood_type] = df[column_name].iloc[-1]
@@ -746,7 +746,7 @@ def clean_e(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (elevation data)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
@@ -807,7 +807,7 @@ def clean_e(input_file, output_file=None):
     print(f"Total area analyzed: {total_count:,.0f} pixels")
     print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
     
-    # identify elevation distribution
+    # ID elevation distribution
     dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
     print(f"Dominant elevation range: {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
     
@@ -827,7 +827,7 @@ def clean_s(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (slope data)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
@@ -885,7 +885,7 @@ def clean_s(input_file, output_file=None):
     print(f"Total area analyzed: {total_count:,.0f} pixels")
     print(f"Percentage coverage verification: {result_df['percentage'].sum():.1f}% (should be ~100%)")
     
-    # identify slope distribution
+    # ID slope distribution
     dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
     print(f"Dominant slope range: {dominant_bin['bin']} degrees ({dominant_bin['percentage']:.1f}%)")
     
@@ -902,6 +902,135 @@ def clean_s(input_file, output_file=None):
     
     return result_df
 
+# landslide susceptibility (% area with different landslide susceptibility levels - "No Data" (0); "Very Low" (1); "Low" (2); "Medium" (3); "High" (4); "Very High" (5))
+
+def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, include_nodata: bool = False) -> pd.DataFrame:
+    """
+    process landslide susceptibility TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_landslide.tif) into cleaned csv, ls_area.csv for visualization.
+  
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/ls_area.csv'
+    include_nodata : bool, optional
+        Whether to include value 0 (typically NoData) in the analysis. Default is False.
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, susceptibility, count, percentage
+    """
+    
+    try:
+        # read TIF file
+        with rasterio.open(input_tif_file) as src:
+            # read data as a numpy array
+            landslide_data = src.read(1)  # read first band
+            
+            # get valid data (exclude "NoData" values if specified by rasterio)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = landslide_data[landslide_data != nodata_value]
+            else:
+                # if no explicit "NoData" value, exclude "NaN"
+                valid_data = landslide_data[~np.isnan(landslide_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+            
+            # convert to integers for consistency
+            valid_data = valid_data.astype(int)
+            
+            # filter data based on "include_nodata" parameter
+            if not include_nodata:
+                # exclude value, "0" ("NoData"/background)
+                analysis_data = valid_data[valid_data > 0]
+            else:
+                analysis_data = valid_data
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # define susceptibility mapping
+    # note: ajusted to handle both scenarios (with/without value, "0")
+    if include_nodata:
+        susceptibility_mapping = {
+            0: {"bin": "No Data", "label": "0"},
+            1: {"bin": "Very low", "label": "1"},
+            2: {"bin": "Low", "label": "2"},
+            3: {"bin": "Medium", "label": "3"},
+            4: {"bin": "High", "label": "4"},
+            5: {"bin": "Very high", "label": "5"}
+        }
+    else:
+        susceptibility_mapping = {
+            1: {"bin": "Very low", "label": "1"},
+            2: {"bin": "Low", "label": "2"},
+            3: {"bin": "Medium", "label": "3"},
+            4: {"bin": "High", "label": "4"},
+            5: {"bin": "Very high", "label": "5"}
+        }
+    
+    # count pixels for each susceptibility level
+    bin_data = []
+    total_pixels = len(analysis_data)
+    
+    # get unique values in data
+    unique_values = np.unique(analysis_data)
+    print(f"Unique values found in data: {unique_values}")
+    
+    for value, mapping in susceptibility_mapping.items():
+        if value in unique_values:
+            count = np.sum(analysis_data == value)
+        else:
+            count = 0
+        
+        bin_data.append({
+            'bin': mapping["bin"],
+            'susceptibility': mapping["label"],
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create dataframe
+    result_df = pd.DataFrame(bin_data)
+    
+    # filter out bins with zero count (removed for now)
+    # result_df = result_df[result_df['count'] > 0].copy()
+    
+    # sort by susceptibility level (i.e., "Very low" to "Very high")
+    susceptibility_order = ["No Data", "Very low", "Low", "Medium", "High", "Very high"]
+    result_df['sort_order'] = result_df['bin'].map({cat: i for i, cat in enumerate(susceptibility_order)})
+    result_df = result_df.sort_values('sort_order').drop('sort_order', axis=1).reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure  processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/ls_area.csv'
+    
+    # save cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned landslide data saved to: {output_file}")
+    print(f"Susceptibility categories: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominant susceptibility level
+    if len(result_df) > 0:
+        # filter out "zero-count" and "No Data" categories
+        active_categories = result_df[(result_df['count'] > 0) & (result_df['bin'] != 'No Data')]
+        if len(active_categories) > 0:
+            dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
+            print(f"Dominant susceptibility level: {dominant_category['bin']} ({dominant_category['percentage']:.1f}%)")
+    
+    return result_df
+
 def clean_ee(input_file, output_file=None):
     """
     clean up the earthquake-events.csv file for visualization as ee.csv.
@@ -909,7 +1038,7 @@ def clean_ee(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (earthquake-events.csv)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
@@ -966,7 +1095,7 @@ def clean_fwi(input_file, output_file=None):
     parameters:
     -----------
     input_file : str
-        Path to the input csv file (fire weather index data)
+        Path to the input csv file
     output_file : str, optional
         Path for output.
     """
