@@ -951,7 +951,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     except Exception as e:
         raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
     
-    # define susceptibility mapping
+    # define landslidesusceptibility mapping
     # note: ajusted to handle both scenarios (with/without value, "0")
     if include_nodata:
         susceptibility_mapping = {
@@ -971,7 +971,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
             5: {"bin": "Very high", "label": "5"}
         }
     
-    # count pixels for each susceptibility level
+    # count pixels for each landslide susceptibility level
     bin_data = []
     total_pixels = len(analysis_data)
     
@@ -998,7 +998,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     # filter out bins with zero count
     # result_df = result_df[result_df['count'] > 0].copy()
     
-    # sort by susceptibility level (i.e., "Very low" to "Very high")
+    # sort by landslide susceptibility level (i.e., "Very low" to "Very high")
     susceptibility_order = ["No Data", "Very low", "Low", "Medium", "High", "Very high"]
     result_df['sort_order'] = result_df['bin'].map({cat: i for i, cat in enumerate(susceptibility_order)})
     result_df = result_df.sort_values('sort_order').drop('sort_order', axis=1).reset_index(drop=True)
@@ -1021,7 +1021,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     print(f"Total pixels analyzed: {total_count:,.0f}")
     print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
     
-    # ID dominant susceptibility level
+    # ID dominant landslide susceptibility level
     if len(result_df) > 0:
         # filter out "zero-count" and "No Data" categories
         active_categories = result_df[(result_df['count'] > 0) & (result_df['bin'] != 'No Data')]
@@ -1031,6 +1031,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     
     return result_df
 
+# earthquake events
 def clean_ee(input_file, output_file=None):
     """
     clean up the earthquake-events.csv file for visualization as ee.csv.
@@ -1084,6 +1085,135 @@ def clean_ee(input_file, output_file=None):
     print(f"Year range: {result_df['begin_year'].min()} - {result_df['begin_year'].max()}")
     print(f"Magnitude range: {result_df['eqMagnitude'].min():.1f} - {result_df['eqMagnitude'].max():.1f}")
     print(f"Distance range: {result_df['distance'].min()} - {result_df['distance'].max()} km")
+    
+    return result_df
+
+# liquefaction susceptibility (% area with different liquefaction susceptibility levels - "No Data" (0); "Very Low" (1); "Low" (2); "Medium" (3); "High" (4); "Very High" (5))
+
+def clean_l_area(input_tif_file: str, output_file: Optional[str] = None, include_nodata: bool = False) -> pd.DataFrame:
+    """
+    process liquefaction susceptibility TIF file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_liquefaction.tif) into cleaned csv, l_area.csv for visualization.
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/l_area.csv'
+    include_nodata : bool, optional
+        Whether to include value 0 (typically NoData) in the analysis. Default is False.
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, susceptibility, count, percentage
+    """
+    
+    try:
+        # read tif file
+        with rasterio.open(input_tif_file) as src:
+            # read data as a numpy array
+            liquefaction_data = src.read(1)  # read first band
+            
+            # get valid data (exclude "NoData" values if specified by rasterio)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = liquefaction_data[liquefaction_data != nodata_value]
+            else:
+                # if no explicit "NoData" value, exclude "NaN"
+                valid_data = liquefaction_data[~np.isnan(liquefaction_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+            
+            # convert to integers for consistent handling
+            valid_data = valid_data.astype(int)
+            
+            # filter data based on "include_nodata" parameter
+            if not include_nodata:
+                # exclude value, "0" ("NoData"/background)
+                analysis_data = valid_data[valid_data > 0]
+            else:
+                analysis_data = valid_data
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+
+    # define liquefaction susceptibility mapping
+    # note: adjusted to handle both scenarios (with/without value 0)
+    if include_nodata:
+        susceptibility_mapping = {
+            0: {"bin": "No Data", "label": "0"},
+            1: {"bin": "Very low", "label": "1"},
+            2: {"bin": "Low", "label": "2"},
+            3: {"bin": "Medium", "label": "3"},
+            4: {"bin": "High", "label": "4"},
+            5: {"bin": "Very high", "label": "5"}
+        }
+    else:
+        susceptibility_mapping = {
+            1: {"bin": "Very low", "label": "1"},
+            2: {"bin": "Low", "label": "2"},
+            3: {"bin": "Medium", "label": "3"},
+            4: {"bin": "High", "label": "4"},
+            5: {"bin": "Very high", "label": "5"}
+        }
+    
+    # count pixels for each liquefaction susceptibility level
+    bin_data = []
+    total_pixels = len(analysis_data)
+    
+    # get unique values in data
+    unique_values = np.unique(analysis_data)
+    print(f"Unique values found in data: {unique_values}")
+    
+    for value, mapping in susceptibility_mapping.items():
+        if value in unique_values:
+            count = np.sum(analysis_data == value)
+        else:
+            count = 0
+        
+        bin_data.append({
+            'bin': mapping["bin"],
+            'susceptibility': mapping["label"],
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create df
+    result_df = pd.DataFrame(bin_data)
+    
+    # filter out bins with "zero count"
+    # result_df = result_df[result_df['count'] > 0].copy()
+    
+    # sort by liquefaction susceptibility level ("Very low" to "Very high")
+    susceptibility_order = ["No Data", "Very low", "Low", "Medium", "High", "Very high"]
+    result_df['sort_order'] = result_df['bin'].map({cat: i for i, cat in enumerate(susceptibility_order)})
+    result_df = result_df.sort_values('sort_order').drop('sort_order', axis=1).reset_index(drop=True)
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/l_area.csv'
+    
+    # save cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation and reporting
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned liquefaction data saved to: {output_file}")
+    print(f"Susceptibility categories: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominant liquefaction susceptibility level
+    if len(result_df) > 0:
+        # filter out "zero-count" and "No Data" categories for meaningful analysis
+        active_categories = result_df[(result_df['count'] > 0) & (result_df['bin'] != 'No Data')]
+        if len(active_categories) > 0:
+            dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
+            print(f"Dominant susceptibility level: {dominant_category['bin']} ({dominant_category['percentage']:.1f}%)")
     
     return result_df
 
@@ -1200,11 +1330,11 @@ def clean_fwi(input_file, output_file=None):
     
     return result_df
 
-# Command line usage
+# command line usage
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_areaclean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1237,11 +1367,12 @@ if __name__ == "__main__":
         clean_ls_area(input_file, output_file)
     elif 'earthquake-events' in input_file: 
         clean_ee(input_file, output_file)
-    elif 'fwi' in input_file:   
+    elif 'fwi' in input_file:
         clean_fwi(input_file, output_file)
-
+    elif 'liquefaction' in input_file:
+        clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
