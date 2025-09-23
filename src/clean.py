@@ -32,7 +32,7 @@ def clean_pg(input_file, output_file=None):
     # sort by year to ensure correct order
     df = df.sort_values('Year').reset_index(drop=True)
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     result_df = pd.DataFrame({
         'yearName': df['Year'],
         'population': df['Population']
@@ -84,7 +84,7 @@ def clean_pas(input_file, output_file=None):
     # group by the new age brackets and sex, summing the population
     df_grouped = df.groupby(['age_group', 'sex'], as_index=False)['population'].sum()
     
-    # create new dataframe with desired structure, renaming columns appropriately
+    # create new df with desired structure, renaming columns appropriately
     result_df = pd.DataFrame({
         'ageBracket': df_grouped['age_group'],
         'sex': df_grouped['sex'].replace({'f': 'female', 'm': 'male'}),  # expand abbreviations
@@ -161,7 +161,7 @@ def clean_uba(input_file, output_file=None):
     # sort by year to ensure correct order
     df = df.sort_values('year').reset_index(drop=True)
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     result_df = pd.DataFrame({
         'year': range(1, len(df) + 1),  # sequential numbering starting from 1
         'yearName': df['year'],
@@ -264,7 +264,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
             'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
         })
     
-    # create dataframe
+    # create df
     result_df = pd.DataFrame(bin_data)
     
     
@@ -277,7 +277,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     # save cleaned data
     result_df.to_csv(output_file, index=False)
     
-    # basic validation and reporting
+    # basic validation
     total_count = result_df['count'].sum()
     percentage_sum = result_df['percentage'].sum()
     
@@ -325,7 +325,7 @@ def clean_lc(input_file, output_file=None):
     # calculate total pixels for percentage calculation
     total_pixels = df_filtered['Pixel Count'].sum()
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     result_df = pd.DataFrame({
         'lcType': df_filtered['Land Cover Type'],
         'pixelCount': df_filtered['Pixel Count'].round(0).astype(int),
@@ -487,7 +487,7 @@ def clean_pv(input_file, output_file=None):
         else:
             return 'Less than Favorable'
     
-    # create new dataframe with desired structure
+    # create new df with desired structure
     # extract max values for each month to create the simplified pv.csv structure
     result_df = pd.DataFrame({
         'month': df['month'],
@@ -601,7 +601,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
             'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
         })
     
-    # create dataframe
+    # create df
     result_df = pd.DataFrame(bin_data)
     
     # filter out bins with zero count
@@ -616,7 +616,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     # save cleaned data
     result_df.to_csv(output_file, index=False)
     
-    # basic validation and reporting
+    # basic validation
     total_count = result_df['count'].sum()
     percentage_sum = result_df['percentage'].sum()
     
@@ -629,6 +629,117 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     if len(result_df) > 0:
         dominant_bin = result_df.loc[result_df['percentage'].idxmax()]
         print(f"Dominant PV condition: {dominant_bin['condition']} - {dominant_bin['bin']} ({dominant_bin['percentage']:.1f}%)")
+    
+    return result_df
+
+# air quality (% area with different air quality conditions - i.e., PM2.5 particle concentrations in 2019 (µg/m³), [0-5), [5-10), [10-15), [15-20), [20-30), [30-40), [40-50), [50-100), [100+])
+
+def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
+    """
+    process air quality TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_air.tif) into cleaned csv, aq_area.csv for visualization.
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/aq_area.csv'
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, count, percentage
+    """
+    
+    try:
+        # read the tif file
+        with rasterio.open(input_tif_file) as src:
+            # read data as numpy array
+            pm25_data = src.read(1)  # read first band
+            
+            # get valid data (exclude "NoData" values)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = pm25_data[pm25_data != nodata_value]
+            else:
+                # if no explicit "nodata" value, exclude "NaN" and infinite values
+                valid_data = pm25_data[~np.isnan(pm25_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+            
+            # remove negative values (i.e., shouldn't exist for PM2.5 concentrations)
+            valid_data = valid_data[valid_data >= 0]
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # define PM2.5 concentration (μg/m³) bins using standard binning: [min_val, max_val) - inclusive lower, exclusive upper
+    bins_definition = [
+        {"range": "[0-5)", "min_val": 0, "max_val": 5},      # 0 ≤ value < 5
+        {"range": "[5-10)", "min_val": 5, "max_val": 10},    # 5 ≤ value < 10
+        {"range": "[10-15)", "min_val": 10, "max_val": 15},  # 10 ≤ value < 15
+        {"range": "[15-20)", "min_val": 15, "max_val": 20},  # 15 ≤ value < 20
+        {"range": "[20-30)", "min_val": 20, "max_val": 30},  # 20 ≤ value < 30
+        {"range": "[30-40)", "min_val": 30, "max_val": 40},  # 30 ≤ value < 40
+        {"range": "[40-50)", "min_val": 40, "max_val": 50},  # 40 ≤ value < 50
+        {"range": "[50-100)", "min_val": 50, "max_val": 100}, # 50 ≤ value < 100
+        {"range": "100+", "min_val": 100, "max_val": float('inf')} # value ≥ 100
+    ]
+    
+    # show data range for validation
+    if len(valid_data) > 0:
+        print(f"PM2.5 data range: {valid_data.min():.2f} - {valid_data.max():.2f} μg/m³")
+        print(f"Unique values in data: {len(np.unique(valid_data))}")
+    
+    # count pixels in each bin
+    bin_data = []
+    total_pixels = len(valid_data)
+    
+    for bin_info in bins_definition:
+        if bin_info["max_val"] == float('inf'):
+            # for the "100+" category
+            count = np.sum(valid_data >= bin_info["min_val"])
+        else:
+            # for ranges with upper bounds
+            # using inclusive lower bound, exclusive upper bound: [min_val, max_val)
+            count = np.sum((valid_data >= bin_info["min_val"]) & (valid_data < bin_info["max_val"]))
+        
+        bin_data.append({
+            'bin': bin_info["range"],
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create df
+    result_df = pd.DataFrame(bin_data)
+    
+    # filter out bins with zero count
+    # result_df = result_df[result_df['count'] > 0].copy()
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/aq_area.csv'
+    
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned air quality data saved to: {output_file}")
+    print(f"PM2.5 concentration bins: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominant concentration range
+    if len(result_df) > 0:
+        # filter out zero-count categories for meaningful analysis
+        active_categories = result_df[result_df['count'] > 0]
+        if len(active_categories) > 0:
+            dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
+            print(f"Most common PM2.5 range: {dominant_category['bin']} μg/m³ ({dominant_category['percentage']:.1f}%)")
     
     return result_df
 
@@ -687,7 +798,7 @@ def clean_flood(input_file, output_dir=None):
         if flood_type in flood_mappings:
             short_name, filename = flood_mappings[flood_type]
             
-            # create dataframe for flood type
+            # create df for flood type
             result_df = pd.DataFrame({
                 'year': range(1, len(df) + 1),  # sequential numbering starting from 1
                 'yearName': df['year'],  # actual year from input
@@ -1198,7 +1309,7 @@ def clean_l_area(input_tif_file: str, output_file: Optional[str] = None, include
     # save cleaned data
     result_df.to_csv(output_file, index=False)
     
-    # basic validation and reporting
+    # basic validation
     total_count = result_df['count'].sum()
     percentage_sum = result_df['percentage'].sum()
     
@@ -1334,7 +1445,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1359,6 +1470,8 @@ if __name__ == "__main__":
         clean_pv_area(input_file, output_file)
     elif 'flood' in input_file:
         clean_flood(input_file, output_file)
+    elif 'air' in input_file:
+        clean_aq_area(input_file, output_file)
     elif 'elevation' in input_file:
         clean_e(input_file, output_file)
     elif 'slope' in input_file:
@@ -1373,6 +1486,6 @@ if __name__ == "__main__":
         clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
