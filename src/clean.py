@@ -674,14 +674,14 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     
     # define PM2.5 concentration (μg/m³) bins using standard binning: [min_val, max_val) - inclusive lower, exclusive upper
     bins_definition = [
-        {"range": "[0-5)", "min_val": 0, "max_val": 5},      # 0 ≤ value < 5
-        {"range": "[5-10)", "min_val": 5, "max_val": 10},    # 5 ≤ value < 10
-        {"range": "[10-15)", "min_val": 10, "max_val": 15},  # 10 ≤ value < 15
-        {"range": "[15-20)", "min_val": 15, "max_val": 20},  # 15 ≤ value < 20
-        {"range": "[20-30)", "min_val": 20, "max_val": 30},  # 20 ≤ value < 30
-        {"range": "[30-40)", "min_val": 30, "max_val": 40},  # 30 ≤ value < 40
-        {"range": "[40-50)", "min_val": 40, "max_val": 50},  # 40 ≤ value < 50
-        {"range": "[50-100)", "min_val": 50, "max_val": 100}, # 50 ≤ value < 100
+        {"range": "0-5", "min_val": 0, "max_val": 5},      # 0 ≤ value < 5
+        {"range": "5-10", "min_val": 5, "max_val": 10},    # 5 ≤ value < 10
+        {"range": "10-15", "min_val": 10, "max_val": 15},  # 10 ≤ value < 15
+        {"range": "15-20", "min_val": 15, "max_val": 20},  # 15 ≤ value < 20
+        {"range": "20-30", "min_val": 20, "max_val": 30},  # 20 ≤ value < 30
+        {"range": "30-40", "min_val": 30, "max_val": 40},  # 30 ≤ value < 40
+        {"range": "40-50", "min_val": 40, "max_val": 50},  # 40 ≤ value < 50
+        {"range": "50-100", "min_val": 50, "max_val": 100}, # 50 ≤ value < 100
         {"range": "100+", "min_val": 100, "max_val": float('inf')} # value ≥ 100
     ]
     
