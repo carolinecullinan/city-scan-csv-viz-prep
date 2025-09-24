@@ -775,7 +775,7 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
             else:
                 # if no explicit "nodata" value, exclude "NaN" and infinite values
                 valid_data = ndvi_data[~np.isnan(ndvi_data)]
-                valid_data = valid_data[np.isfinite(ndvi_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
     
     except Exception as e:
         raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
