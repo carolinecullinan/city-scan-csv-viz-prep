@@ -742,13 +742,11 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     
     return result_df
 
-# green spaces, NDVI (% area with different NDVI - i.e., "Water", [-1-0.015); "Built-up", [0.015-0.14); "Barren", [0.14-0.18); "Shrub and Grassland", [0.18-0.27); "Sparse", [0.27-0.36); and "Dense",   [0.36-1])
+# green spaces, NDVI (% area with different NDVI - i.e., "Water", [-1-0.015); "Built-up", [0.015-0.14); "Barren", [0.14-0.18); "Shrub and Grassland", [0.18-0.27); "Sparse", [0.27-0.36); and "Dense",   [0.36-1])  
 def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    Process NDVI TIF data into cleaned CSV format for visualization.
     process green space, NDVI TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_ndvi_season.tif) into cleaned csv, aq_area.csv for visualization.
 
-    
     Parameters:
     -----------
     input_tif_file : str
@@ -775,12 +773,14 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
             else:
                 # if no explicit "nodata" value, exclude "NaN" and infinite values
                 valid_data = ndvi_data[~np.isnan(ndvi_data)]
-                valid_data = valid_data[np.isfinite(valid_data)]
+            
+            # remove infinite values from the valid_data (not the original array)
+            valid_data = valid_data[np.isfinite(valid_data)]
     
     except Exception as e:
         raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
     
-    # define NDVI bins and corresponding vegetation types using proper binning: [min_val, max_val) - inclusive lower, exclusive upper
+    # define NDVI bins
     bins_definition = [
         {"range": "-1-0.015", "type": "Water", "min_val": -1.0, "max_val": 0.015},
         {"range": "0.015-0.14", "type": "Built-up", "min_val": 0.015, "max_val": 0.14},
@@ -800,7 +800,7 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     total_pixels = len(valid_data)
     
     for bin_info in bins_definition:
-        if bin_info["range"] == "[0.36-1]":
+        if bin_info["range"] == "0.36-1":
             # for final "bin" [0.36-1], include the upper bound [inclusive]
             count = np.sum((valid_data >= bin_info["min_val"]) & (valid_data <= bin_info["max_val"]))
         else:
@@ -819,7 +819,6 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     
     # create output filename if not provided
     if output_file is None:
-        # ensure the processed directory exists
         os.makedirs('data/processed', exist_ok=True)
         output_file = 'data/processed/ndvi_area.csv'
     
@@ -834,14 +833,6 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     print(f"NDVI vegetation categories: {len(result_df)}")
     print(f"Total pixels analyzed: {total_count:,.0f}")
     print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
-    
-    # ID dominant vegetation type
-    if len(result_df) > 0:
-        # filter out zero-count categories for meaningful analysis
-        active_categories = result_df[result_df['count'] > 0]
-        if len(active_categories) > 0:
-            dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
-            print(f"Dominant vegetation type: {dominant_category['type']} ({dominant_category['percentage']:.1f}%)")
     
     return result_df
 
