@@ -633,7 +633,6 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     return result_df
 
 # air quality (% area with different air quality conditions - i.e., PM2.5 particle concentrations in 2019 (µg/m³), [0-5), [5-10), [10-15), [15-20), [20-30), [30-40), [40-50), [50-100), [100+])
-
 def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
     process air quality TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_air.tif) into cleaned csv, aq_area.csv for visualization.
@@ -740,6 +739,109 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
         if len(active_categories) > 0:
             dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
             print(f"Most common PM2.5 range: {dominant_category['bin']} μg/m³ ({dominant_category['percentage']:.1f}%)")
+    
+    return result_df
+
+# green spaces, NDVI (% area with different NDVI - i.e., "Water", [-1-0.015); "Built-up", [0.015-0.14); "Barren", [0.14-0.18); "Shrub and Grassland", [0.18-0.27); "Sparse", [0.27-0.36); and "Dense",   [0.36-1])
+def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
+    """
+    Process NDVI TIF data into cleaned CSV format for visualization.
+    process green space, NDVI TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_ndvi_season.tif) into cleaned csv, aq_area.csv for visualization.
+
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/ndvi_area.csv'
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, type, count, percentage
+    """
+    
+    try:
+        # read the tif file
+        with rasterio.open(input_tif_file) as src:
+            # read the data as a numpy array
+            ndvi_data = src.read(1)  # read first band
+            
+            # get valid data (exclude "NoData" values)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = ndvi_data[ndvi_data != nodata_value]
+            else:
+                # if no explicit "nodata" value, exclude "NaN" and infinite values
+                valid_data = ndvi_data[~np.isnan(ndvi_data)]
+                valid_data = valid_data[np.isfinite(ndvi_data)]
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # define NDVI bins and corresponding vegetation types using proper binning: [min_val, max_val) - inclusive lower, exclusive upper
+    bins_definition = [
+        {"range": "-1-0.015", "type": "Water", "min_val": -1.0, "max_val": 0.015},
+        {"range": "0.015-0.14", "type": "Built-up", "min_val": 0.015, "max_val": 0.14},
+        {"range": "0.14-0.18", "type": "Barren", "min_val": 0.14, "max_val": 0.18},
+        {"range": "0.18-0.27", "type": "Shrub and Grassland", "min_val": 0.18, "max_val": 0.27},
+        {"range": "0.27-0.36", "type": "Sparse", "min_val": 0.27, "max_val": 0.36},
+        {"range": "0.36-1", "type": "Dense", "min_val": 0.36, "max_val": 1.0}
+    ]
+    
+    # show data range for validation
+    if len(valid_data) > 0:
+        print(f"NDVI data range: {valid_data.min():.3f} - {valid_data.max():.3f}")
+        print(f"Unique values in data: {len(np.unique(valid_data))}")
+    
+    # count pixels in each "bin"
+    bin_data = []
+    total_pixels = len(valid_data)
+    
+    for bin_info in bins_definition:
+        if bin_info["range"] == "[0.36-1]":
+            # for final "bin" [0.36-1], include the upper bound [inclusive]
+            count = np.sum((valid_data >= bin_info["min_val"]) & (valid_data <= bin_info["max_val"]))
+        else:
+            # for other ranges, use [min_val, max_val) - [inclusive lower, exclusive upper)
+            count = np.sum((valid_data >= bin_info["min_val"]) & (valid_data < bin_info["max_val"]))
+        
+        bin_data.append({
+            'bin': bin_info["range"],
+            'type': bin_info["type"],
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create df
+    result_df = pd.DataFrame(bin_data)
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure the processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/ndvi_area.csv'
+    
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"Cleaned NDVI data saved to: {output_file}")
+    print(f"NDVI vegetation categories: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,.0f}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominant vegetation type
+    if len(result_df) > 0:
+        # filter out zero-count categories for meaningful analysis
+        active_categories = result_df[result_df['count'] > 0]
+        if len(active_categories) > 0:
+            dominant_category = active_categories.loc[active_categories['percentage'].idxmax()]
+            print(f"Dominant vegetation type: {dominant_category['type']} ({dominant_category['percentage']:.1f}%)")
     
     return result_df
 
@@ -1445,7 +1547,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_ndvi_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1472,6 +1574,8 @@ if __name__ == "__main__":
         clean_flood(input_file, output_file)
     elif 'air' in input_file:
         clean_aq_area(input_file, output_file)
+    elif 'ndvi' in input_file:
+        clean_ndvi_area(input_file, output_file)
     elif 'elevation' in input_file:
         clean_e(input_file, output_file)
     elif 'slope' in input_file:
@@ -1486,6 +1590,6 @@ if __name__ == "__main__":
         clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'ndvi' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
