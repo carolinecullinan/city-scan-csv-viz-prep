@@ -9,6 +9,7 @@ Takes csv and tif files from existing City Scan tabular and spatial output and i
 import pandas as pd
 import numpy as np
 import rasterio
+from rasterio.warp import reproject, Resampling
 import os
 import sys
 from typing import Optional
@@ -94,20 +95,20 @@ def clean_pas(input_file, output_file=None):
     })
     
     # sort by age bracket and sex for consistent ordering
-    # get all unique age brackets from the data and create a comprehensive sort order
+    # get all unique age brackets from data and create a comprehensive sort order
     unique_brackets = sorted(result_df['ageBracket'].unique())
     
-    # create a custom sort order that includes all brackets in the data
+    # create a custom sort order that includes all brackets in data
     age_order = ['0-4', '5-9', '10-14', '15-19', '20-24', '25-29', 
                  '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', 
                  '65-69', '70-74', '75-79', '80+', '80']
     
-    # add any missing brackets from the data to the end of the order
+    # add any missing brackets from data to the end of the order
     for bracket in unique_brackets:
         if bracket not in age_order:
             age_order.append(bracket)
     
-    # create a categorical column for proper sorting, only including categories that exist in the data
+    # create a categorical column for proper sorting, only including categories that exist in data
     existing_categories = [cat for cat in age_order if cat in unique_brackets]
     
     try:
@@ -213,7 +214,7 @@ def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd
     try:
         # read tif file
         with rasterio.open(input_tif_file) as src:
-            # read the data as a numpy array
+            # read data as a numpy array
             uba_data = src.read(1)  # read first band
             
             # get valid data (exclude "NoData" values)
@@ -316,7 +317,7 @@ def clean_lc(input_file, output_file=None):
     df = pd.read_csv(input_file)
     
     # remove rows where "Pixel Count" is "0" (no coverage for that land type)
-    # also remove any "total" or summary rows that might be in the data
+    # also remove any "total" or summary rows that might be in data
     df_filtered = df[
         (df['Pixel Count'] > 0) & 
         (~df['Land Cover Type'].str.contains('total', case=False, na=False))
@@ -558,7 +559,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     """
     
     try:
-        # read the tif file
+        # read tif file
         with rasterio.open(input_tif_file) as src:
             # read data as a numpy array
             pv_data = src.read(1)  # read first band
@@ -651,7 +652,7 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     """
     
     try:
-        # read the tif file
+        # read tif file
         with rasterio.open(input_tif_file) as src:
             # read data as numpy array
             pm25_data = src.read(1)  # read first band
@@ -761,9 +762,9 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     """
     
     try:
-        # read the tif file
+        # read tif file
         with rasterio.open(input_tif_file) as src:
-            # read the data as a numpy array
+            # read data as a numpy array
             ndvi_data = src.read(1)  # read first band
             
             # get valid data (exclude "NoData" values)
@@ -837,112 +838,153 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     return result_df
 
 
-# forests and deforestation (% area with different forest cover and deforestation years)  
+# forests and deforestation (% area with different forest cover and deforestation per year)  
 def clean_deforestation_area(forest_tif_file: str, deforestation_tif_file: str, 
                              output_file: Optional[str] = None, 
-                             base_year: int = 2000) -> pd.DataFrame:
+                             base_year: int = 2000,
+                             auto_align: bool = True) -> pd.DataFrame:
     """
     process forest cover (i.e., 20XX-04-country-city_02-process-output_spatial_city_forest_cover23.tif) and deforestation (i.e., 20XX-04-country-city_02-process-output_spatial_city_deforestation.tif) tif files into cleaned csv, deforestation_area.csv.
     
     Parameters:
     -----------
     forest_tif_file : str
-        Path to forest cover TIF file (binary: 1=forest, 0=non-forest)
+        Path to forest cover TIF file (binary: 1=forest, 0/NoData=non-forest)
     deforestation_tif_file : str
         Path to deforestation TIF file (values 1-23 representing years since base_year)
     output_file : str, optional
         Path for output CSV. If None, saves to 'data/processed/deforestation_area.csv'
     base_year : int, optional
         Base year for deforestation data (default 2000, so value 1 = 2001)
+    auto_align : bool, optional
+        If True, automatically align/resample deforestation to match forest if misaligned
     
     Returns:
     --------
     pd.DataFrame
-        Cleaned dataframe with columns: category, year, count, percentage_of_total, percentage_of_forest
+        Cleaned dataframe with columns: year, forest_remaining, deforested_this_year, 
+        cumulative_deforested, percent_forest_remaining, percent_forest_lost
     """
     
     try:
         # read forest cover tif
-        with rasterio.open(forest_tif_file) as src:
-            forest_data = src.read(1)
-            forest_nodata = src.nodata
+        with rasterio.open(forest_tif_file) as forest_src:
+            forest_data = forest_src.read(1)
+            forest_nodata = forest_src.nodata
+            forest_profile = forest_src.profile
+            forest_transform = forest_src.transform
+            forest_crs = forest_src.crs
+            forest_bounds = forest_src.bounds
+            forest_shape = forest_src.shape
             
         # read deforestation tif
-        with rasterio.open(deforestation_tif_file) as src:
-            deforest_data = src.read(1)
-            deforest_nodata = src.nodata
+        with rasterio.open(deforestation_tif_file) as deforest_src:
+            deforest_data_original = deforest_src.read(1)
+            deforest_nodata = deforest_src.nodata
+            deforest_transform = deforest_src.transform
+            deforest_crs = deforest_src.crs
+            deforest_bounds = deforest_src.bounds
+            deforest_shape = deforest_src.shape
             
-        # create masks for valid data
+        # check forest cover and deforestation alignment
+        same_crs = forest_crs == deforest_crs
+        same_shape = forest_shape == deforest_shape
+        same_bounds = (abs(forest_bounds.left - deforest_bounds.left) < 1e-6 and
+                      abs(forest_bounds.right - deforest_bounds.right) < 1e-6 and
+                      abs(forest_bounds.top - deforest_bounds.top) < 1e-6 and
+                      abs(forest_bounds.bottom - deforest_bounds.bottom) < 1e-6)
+        same_transform = forest_transform == deforest_transform
+        
+        is_aligned = same_crs and same_shape and same_bounds and same_transform
+        
+        print(f"Alignment check:")
+        print(f"- Same CRS: {same_crs}")
+        print(f"- Same shape: {same_shape}")
+        print(f"- Same bounds: {same_bounds}")
+        print(f"- Fully aligned: {is_aligned}")
+        
+        if not is_aligned:
+            if auto_align:
+                print("\nAuto-aligning deforestation to match forest cover...")
+                deforest_data = np.empty(forest_shape, dtype=deforest_data_original.dtype)
+                reproject(
+                    source=deforest_data_original,
+                    destination=deforest_data,
+                    src_transform=deforest_transform,
+                    src_crs=deforest_crs,
+                    src_nodata=deforest_nodata,
+                    dst_transform=forest_transform,
+                    dst_crs=forest_crs,
+                    dst_nodata=deforest_nodata,
+                    resampling=Resampling.nearest
+                )
+                print("Alignment complete")
+            else:
+                raise ValueError("TIF files are not aligned. Set auto_align=True to fix.")
+        else:
+            deforest_data = deforest_data_original
+            print("TIFs are properly aligned")
+        
+        # use forest cover as primary mask
         if forest_nodata is not None:
-            valid_forest_mask = forest_data != forest_nodata
+            valid_mask = forest_data != forest_nodata
         else:
-            valid_forest_mask = ~np.isnan(forest_data)
-            
-        if deforest_nodata is not None:
-            valid_deforest_mask = deforest_data != deforest_nodata
-        else:
-            valid_deforest_mask = ~np.isnan(deforest_data)
+            valid_mask = ~np.isnan(forest_data) & np.isfinite(forest_data)
         
-        # combined valid mask (only analyze where both datasets have data)
-        valid_mask = valid_forest_mask & valid_deforest_mask
-        
-        # extract valid data
         forest_valid = forest_data[valid_mask]
-        deforest_valid = deforest_data[valid_mask]
+        deforest_valid = deforest_data[valid_mask].copy()
         
-        # total pixels in area of interest (AOI)
-        total_pixels = len(forest_valid)
+        # treat "NoData" in deforestation as "0" (no deforestation)
+        if deforest_nodata is not None:
+            deforest_valid[deforest_valid == deforest_nodata] = 0
+        deforest_valid[np.isnan(deforest_valid)] = 0
         
-        # calculate forest pixels (where forest_data == 1)
-        forest_pixels = np.sum(forest_valid == 1)
-        non_forest_pixels = np.sum(forest_valid == 0)
+        # calculate baseline forest (only pixels where "value=1")
+        baseline_forest = np.sum(forest_valid == 1)
         
-        print(f"Total study area pixels: {total_pixels:,}")
-        print(f"Forest pixels: {forest_pixels:,} ({forest_pixels/total_pixels*100:.1f}%)")
-        print(f"Non-forest pixels: {non_forest_pixels:,} ({non_forest_pixels/total_pixels*100:.1f}%)")
+        print(f"\nBaseline forest area: {baseline_forest:,} pixels")
         
     except Exception as e:
         raise Exception(f"Error reading TIF files: {e}")
     
-    # build result data
+    # build year-over-year data
     result_data = []
     
-    # 1. add forest cover (i.e., no deforestation)
-    # forest pixels where deforestation value is "0"
-    forest_remaining = np.sum((forest_valid == 1) & (deforest_valid == 0))
-    result_data.append({
-        'category': 'Forest (No Loss)',
-        'year': 'Current',
-        'count': int(forest_remaining),
-        'percentage_of_total': round((forest_remaining / total_pixels) * 100, 2),
-        'percentage_of_forest': round((forest_remaining / forest_pixels) * 100, 2) if forest_pixels > 0 else 0
-    })
-    
-    # 2. add non-forest area
-    result_data.append({
-        'category': 'Non-Forest',
-        'year': 'N/A',
-        'count': int(non_forest_pixels),
-        'percentage_of_total': round((non_forest_pixels / total_pixels) * 100, 2),
-        'percentage_of_forest': 0.0
-    })
-    
-    # 3. add deforestation by year
-    # get unique deforestation years (exclude "0")
+    # get unique deforestation years
     deforest_years = np.unique(deforest_valid[deforest_valid > 0])
     
+    # add baseline year (no deforestation yet)
+    result_data.append({
+        'year': base_year,
+        'forest_remaining': baseline_forest,
+        'deforested_this_year': 0,
+        'cumulative_deforested': 0,
+        'percent_forest_remaining': 100.0,
+        'percent_forest_lost': 0.0
+    })
+    
+    # track cumulative deforestation
+    cumulative_deforested = 0
+    
+    # add data for each year with deforestation
     for year_code in sorted(deforest_years):
         actual_year = base_year + int(year_code)
         
-        # count pixels "deforested" in this year (must be "forest" pixels)
-        deforest_count = np.sum((forest_valid == 1) & (deforest_valid == year_code))
+        # count pixels deforested this year (must be forest pixels)
+        deforested_count = np.sum((forest_valid == 1) & (deforest_valid == year_code))
+        cumulative_deforested += deforested_count
+        
+        forest_remaining = baseline_forest - cumulative_deforested
+        percent_remaining = (forest_remaining / baseline_forest) * 100
+        percent_lost = (cumulative_deforested / baseline_forest) * 100
         
         result_data.append({
-            'category': f'Deforested',
-            'year': str(actual_year),
-            'count': int(deforest_count),
-            'percentage_of_total': round((deforest_count / total_pixels) * 100, 2),
-            'percentage_of_forest': round((deforest_count / forest_pixels) * 100, 2) if forest_pixels > 0 else 0
+            'year': actual_year,
+            'forest_remaining': int(forest_remaining),
+            'deforested_this_year': int(deforested_count),
+            'cumulative_deforested': int(cumulative_deforested),
+            'percent_forest_remaining': round(percent_remaining, 2),
+            'percent_forest_lost': round(percent_lost, 2)
         })
     
     # create df
@@ -953,24 +995,26 @@ def clean_deforestation_area(forest_tif_file: str, deforestation_tif_file: str,
         os.makedirs('data/processed', exist_ok=True)
         output_file = 'data/processed/deforestation_area.csv'
     
-    # save the cleaned data
+    # save cleaned data
     result_df.to_csv(output_file, index=False)
     
     # summary statistics
-    total_deforested = result_df[result_df['category'] == 'Deforested']['count'].sum()
+    final_year = result_df.iloc[-1]
     
     print(f"\nCleaned deforestation data saved to: {output_file}")
-    print(f"Categories: {len(result_df)}")
-    print(f"Total deforested area: {total_deforested:,} pixels ({total_deforested/total_pixels*100:.1f}% of total, {total_deforested/forest_pixels*100:.1f}% of forest)")
+    print(f"Time period: {base_year} - {final_year['year']}")
+    print(f"Baseline forest: {baseline_forest:,} pixels")
+    print(f"Total deforested: {final_year['cumulative_deforested']:,} pixels ({final_year['percent_forest_lost']:.2f}%)")
+    print(f"Forest remaining: {final_year['forest_remaining']:,} pixels ({final_year['percent_forest_remaining']:.2f}%)")
     
-    # ID peak deforestation year
-    deforest_rows = result_df[result_df['category'] == 'Deforested']
-    if len(deforest_rows) > 0:
-        peak_year = deforest_rows.loc[deforest_rows['count'].idxmax()]
-        print(f"Peak deforestation year: {peak_year['year']} ({peak_year['count']:,} pixels)")
+    # peak deforestation year
+    peak_year = result_df[result_df['deforested_this_year'] > 0].loc[
+        result_df['deforested_this_year'].idxmax()
+    ]
+    print(f"Peak deforestation year: {peak_year['year']} ({peak_year['deforested_this_year']:,} pixels)")
     
     return result_df
-
+    
 # flooding
 def clean_flood(input_file, output_dir=None):
     """
