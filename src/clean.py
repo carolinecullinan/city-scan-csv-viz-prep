@@ -2,7 +2,7 @@
 """
 tabular output csv cleanup script
 
-Takes csv files from existing City Scan tabular output and interim Scan Calculation Sheet data outputs and cleans up formatting and makes additional calculations so that the output is ready for visualization, returning new csv files:
+Takes csv and tif files from existing City Scan tabular and spatial output and interim Scan Calculation Sheet data outputs and cleans up formatting and makes additional calculations so that the output is ready for visualization, returning new csv files:
 
 """
 
@@ -195,7 +195,7 @@ def clean_uba(input_file, output_file=None):
 # urban extent and change (percentage area with different years of urban expansion, "Before 1985", "1986-1995", "1996-2005", and "2006-2015")
 def clean_uba_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    process urban built-up area expansion TIF file (i.e., city_wsf_evolution_projection.tif) into cleaned CSV, uba_area.csv format for visualization.
+    process urban built-up area expansion tif file (i.e., city_wsf_evolution_projection.tif) into cleaned csv, uba_area.csv format for visualization.
     
     Parameters:
     -----------
@@ -360,7 +360,7 @@ def clean_lc(input_file, output_file=None):
 # population urban growth (urban development dynamics matrix)
 def clean_pug(pg_file=None, uba_file=None, output_file=None):
     """
-    clean up and merge population growth (pg.csv) and urban built area (uba.csv) data 
+    clean up and merge population growth (pg.csv) and urban built area (uba.csv) csv files 
     for visualization as pug.csv (population urban growth ratio for urban development dynamics matrix).
     
     parameters:
@@ -542,7 +542,7 @@ def clean_pv(input_file, output_file=None):
 # photovoltaic (% area with different pv conditions - "Excellent (4+5)","Favorable (3.5-4.5)","Less than Favorable (<3.5)")
 def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    process photovoltaic potential TIF file (i.e., solar.tif) into cleaned csv, pv_area.csv for visualization.
+    process photovoltaic potential tif file (i.e., solar.tif) into cleaned csv, pv_area.csv for visualization.
     
     Parameters:
     -----------
@@ -635,7 +635,7 @@ def clean_pv_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
 # air quality (% area with different air quality conditions - i.e., PM2.5 particle concentrations in 2019 (µg/m³), [0-5), [5-10), [10-15), [15-20), [20-30), [30-40), [40-50), [50-100), [100+])
 def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    process air quality TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_air.tif) into cleaned csv, aq_area.csv for visualization.
+    process air quality tif file (i.e., 20XX-04-country-city_02-process-output_spatial_city_air.tif) into cleaned csv, aq_area.csv for visualization.
     
     Parameters:
     -----------
@@ -745,7 +745,7 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
 # green spaces, NDVI (% area with different NDVI - i.e., "Water", [-1-0.015); "Built-up", [0.015-0.14); "Barren", [0.14-0.18); "Shrub and Grassland", [0.18-0.27); "Sparse", [0.27-0.36); and "Dense",   [0.36-1])  
 def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
-    process green space, NDVI TIF file (i.e., 20XX-04-country-city_02-process-output_spatial_city_ndvi_season.tif) into cleaned csv, aq_area.csv for visualization.
+    process green space, NDVI tif file (i.e., 20XX-04-country-city_02-process-output_spatial_city_ndvi_season.tif) into cleaned csv, aq_area.csv for visualization.
 
     Parameters:
     -----------
@@ -836,12 +836,145 @@ def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> p
     
     return result_df
 
+
+# forests and deforestation (% area with different forest cover and deforestation years)  
+def clean_deforestation_area(forest_tif_file: str, deforestation_tif_file: str, 
+                             output_file: Optional[str] = None, 
+                             base_year: int = 2000) -> pd.DataFrame:
+    """
+    process forest cover (i.e., 20XX-04-country-city_02-process-output_spatial_city_forest_cover23.tif) and deforestation (i.e., 20XX-04-country-city_02-process-output_spatial_city_deforestation.tif) tif files into cleaned csv, deforestation_area.csv.
+    
+    Parameters:
+    -----------
+    forest_tif_file : str
+        Path to forest cover TIF file (binary: 1=forest, 0=non-forest)
+    deforestation_tif_file : str
+        Path to deforestation TIF file (values 1-23 representing years since base_year)
+    output_file : str, optional
+        Path for output CSV. If None, saves to 'data/processed/deforestation_area.csv'
+    base_year : int, optional
+        Base year for deforestation data (default 2000, so value 1 = 2001)
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: category, year, count, percentage_of_total, percentage_of_forest
+    """
+    
+    try:
+        # read forest cover tif
+        with rasterio.open(forest_tif_file) as src:
+            forest_data = src.read(1)
+            forest_nodata = src.nodata
+            
+        # read deforestation tif
+        with rasterio.open(deforestation_tif_file) as src:
+            deforest_data = src.read(1)
+            deforest_nodata = src.nodata
+            
+        # create masks for valid data
+        if forest_nodata is not None:
+            valid_forest_mask = forest_data != forest_nodata
+        else:
+            valid_forest_mask = ~np.isnan(forest_data)
+            
+        if deforest_nodata is not None:
+            valid_deforest_mask = deforest_data != deforest_nodata
+        else:
+            valid_deforest_mask = ~np.isnan(deforest_data)
+        
+        # combined valid mask (only analyze where both datasets have data)
+        valid_mask = valid_forest_mask & valid_deforest_mask
+        
+        # extract valid data
+        forest_valid = forest_data[valid_mask]
+        deforest_valid = deforest_data[valid_mask]
+        
+        # total pixels in area of interest (AOI)
+        total_pixels = len(forest_valid)
+        
+        # calculate forest pixels (where forest_data == 1)
+        forest_pixels = np.sum(forest_valid == 1)
+        non_forest_pixels = np.sum(forest_valid == 0)
+        
+        print(f"Total study area pixels: {total_pixels:,}")
+        print(f"Forest pixels: {forest_pixels:,} ({forest_pixels/total_pixels*100:.1f}%)")
+        print(f"Non-forest pixels: {non_forest_pixels:,} ({non_forest_pixels/total_pixels*100:.1f}%)")
+        
+    except Exception as e:
+        raise Exception(f"Error reading TIF files: {e}")
+    
+    # build result data
+    result_data = []
+    
+    # 1. add forest cover (i.e., no deforestation)
+    # forest pixels where deforestation value is "0"
+    forest_remaining = np.sum((forest_valid == 1) & (deforest_valid == 0))
+    result_data.append({
+        'category': 'Forest (No Loss)',
+        'year': 'Current',
+        'count': int(forest_remaining),
+        'percentage_of_total': round((forest_remaining / total_pixels) * 100, 2),
+        'percentage_of_forest': round((forest_remaining / forest_pixels) * 100, 2) if forest_pixels > 0 else 0
+    })
+    
+    # 2. add non-forest area
+    result_data.append({
+        'category': 'Non-Forest',
+        'year': 'N/A',
+        'count': int(non_forest_pixels),
+        'percentage_of_total': round((non_forest_pixels / total_pixels) * 100, 2),
+        'percentage_of_forest': 0.0
+    })
+    
+    # 3. add deforestation by year
+    # get unique deforestation years (exclude "0")
+    deforest_years = np.unique(deforest_valid[deforest_valid > 0])
+    
+    for year_code in sorted(deforest_years):
+        actual_year = base_year + int(year_code)
+        
+        # count pixels "deforested" in this year (must be "forest" pixels)
+        deforest_count = np.sum((forest_valid == 1) & (deforest_valid == year_code))
+        
+        result_data.append({
+            'category': f'Deforested',
+            'year': str(actual_year),
+            'count': int(deforest_count),
+            'percentage_of_total': round((deforest_count / total_pixels) * 100, 2),
+            'percentage_of_forest': round((deforest_count / forest_pixels) * 100, 2) if forest_pixels > 0 else 0
+        })
+    
+    # create df
+    result_df = pd.DataFrame(result_data)
+    
+    # create output filename if not provided
+    if output_file is None:
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/deforestation_area.csv'
+    
+    # save the cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # summary statistics
+    total_deforested = result_df[result_df['category'] == 'Deforested']['count'].sum()
+    
+    print(f"\nCleaned deforestation data saved to: {output_file}")
+    print(f"Categories: {len(result_df)}")
+    print(f"Total deforested area: {total_deforested:,} pixels ({total_deforested/total_pixels*100:.1f}% of total, {total_deforested/forest_pixels*100:.1f}% of forest)")
+    
+    # ID peak deforestation year
+    deforest_rows = result_df[result_df['category'] == 'Deforested']
+    if len(deforest_rows) > 0:
+        peak_year = deforest_rows.loc[deforest_rows['count'].idxmax()]
+        print(f"Peak deforestation year: {peak_year['year']} ({peak_year['count']:,} pixels)")
+    
+    return result_df
+
 # flooding
 def clean_flood(input_file, output_dir=None):
     """
-    clean up the 20XX-0X-country-city_02-process-output_tabular_city_flood_wsf.csv file and create separate output files for each flood type.
-    Creates fu.csv (fluvial), pu.csv (pluvial), cu.csv (coastal), and comb.csv (combined)
-    based on available data in the input file.
+    clean up the 20XX-0X-country-city_02-process-output_tabular_city_flood_wsf.csv file and create separate output csv files (i.e., fu.csv (fluvial), pu.csv (pluvial), cu.csv (coastal), and comb.csv (combined)) for each flood type based on available data in the input file.
 
     Note: flood-events.csv is not included as in input file because the csv is already cleaned and ready for visualization.
     
@@ -1110,7 +1243,7 @@ def clean_s(input_file, output_file=None):
 
 def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, include_nodata: bool = False) -> pd.DataFrame:
     """
-    process landslide susceptibility TIF file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_landslide.tif) into cleaned csv, ls_area.csv for visualization.
+    process landslide susceptibility tif file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_landslide.tif) into cleaned csv, ls_area.csv for visualization.
 
     Parameters:
     -----------
@@ -1155,7 +1288,7 @@ def clean_ls_area(input_tif_file: str, output_file: Optional[str] = None, includ
     except Exception as e:
         raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
     
-    # define landslidesusceptibility mapping
+    # define landslide susceptibility mapping
     # note: ajusted to handle both scenarios (with/without value, "0")
     if include_nodata:
         susceptibility_mapping = {
@@ -1296,7 +1429,7 @@ def clean_ee(input_file, output_file=None):
 
 def clean_l_area(input_tif_file: str, output_file: Optional[str] = None, include_nodata: bool = False) -> pd.DataFrame:
     """
-    process liquefaction susceptibility TIF file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_liquefaction.tif) into cleaned csv, l_area.csv for visualization.
+    process liquefaction susceptibility tif file (/i.e., 20XX-04-country-city_02-process-output_spatial_city_liquefaction.tif) into cleaned csv, l_area.csv for visualization.
     
     Parameters:
     -----------
@@ -1538,7 +1671,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_ndvi_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_ndvi_area, clean_deforestation_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1567,6 +1700,10 @@ if __name__ == "__main__":
         clean_aq_area(input_file, output_file)
     elif 'ndvi' in input_file:
         clean_ndvi_area(input_file, output_file)
+    elif 'forest' in input_file:
+        clean_deforestation_area(input_file, output_file)
+    elif 'deforestation' in input_file:
+        clean_deforestation_area(input_file, output_file)
     elif 'elevation' in input_file:
         clean_e(input_file, output_file)
     elif 'slope' in input_file:
@@ -1581,6 +1718,6 @@ if __name__ == "__main__":
         clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'ndvi' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'ndvi' or 'forest' or 'deforestation' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
