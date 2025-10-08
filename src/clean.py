@@ -743,6 +743,119 @@ def clean_aq_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.
     
     return result_df
 
+# summer surface temperature (% area with different summer surface temperatures)
+def clean_summer_area(input_tif_file: str, output_file: Optional[str] = None, bin_width: int = 5) -> pd.DataFrame:
+    """
+    process summer surface temperature tif file (i.e., 20XX-04-country-city_02-process-output_spatial_city_summer.tif) in to cleaned csv, summer_area.csv for visualization.    
+    
+    Parameters:
+    -----------
+    input_tif_file : str
+        Path to the input TIF file (summer surface temperature data in Celsius)
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/summer_area.csv'
+    bin_width : int, optional
+        Width of temperature bins in degrees Celsius (default: 5)
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, count, percentage
+    """
+    
+    try:
+        # read tif file
+        with rasterio.open(input_tif_file) as src:
+            # Read the data as a numpy array
+            temp_data = src.read(1)  # Read first band
+            
+            # get valid data (exclude "NoData" values)
+            nodata_value = src.nodata
+            if nodata_value is not None:
+                valid_data = temp_data[temp_data != nodata_value]
+            else:
+                # if no explicit "nodata" value, exclude "NaN" and infinite values
+                valid_data = temp_data[~np.isnan(temp_data)]
+                valid_data = valid_data[np.isfinite(valid_data)]
+    
+    except Exception as e:
+        raise Exception(f"Error reading TIF file {input_tif_file}: {e}")
+    
+    # get temperature range
+    min_temp = valid_data.min()
+    max_temp = valid_data.max()
+    
+    print(f"Temperature data range: {min_temp:.1f}°C - {max_temp:.1f}°C")
+    print(f"Total valid pixels: {len(valid_data):,}")
+    
+    # create dynamic bins based on data range
+    # round min down to nearest bin_width, max up to nearest bin_width
+    bin_start = int(np.floor(min_temp / bin_width) * bin_width)
+    bin_end = int(np.ceil(max_temp / bin_width) * bin_width)
+    
+    # create bin edges
+    bin_edges = list(range(bin_start, bin_end + bin_width, bin_width))
+    
+    print(f"Creating bins from {bin_start}°C to {bin_end}°C in {bin_width}°C increments")
+    print(f"Number of bins: {len(bin_edges) - 1}")
+    
+    # count pixels in each bin
+    bin_data = []
+    total_pixels = len(valid_data)
+    
+    for i in range(len(bin_edges) - 1):
+        lower = bin_edges[i]
+        upper = bin_edges[i + 1]
+        
+        # for the last bin, include upper boundary (<=), otherwise exclude it (<)
+        if i == len(bin_edges) - 2:
+            count = np.sum((valid_data >= lower) & (valid_data <= upper))
+        else:
+            count = np.sum((valid_data >= lower) & (valid_data < upper))
+        
+        # create bin label
+        bin_label = f"{lower}-{upper}"
+        
+        bin_data.append({
+            'bin': bin_label,
+            'count': int(count),
+            'percentage': round((count / total_pixels) * 100, 2) if total_pixels > 0 else 0
+        })
+    
+    # create df
+    result_df = pd.DataFrame(bin_data)
+    
+    # filter out bins with zero count (optional - keeps empty bins for completeness)
+    # result_df = result_df[result_df['count'] > 0].copy()
+    
+    # create output filename if not provided
+    if output_file is None:
+        # ensure processed directory exists
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/summer_area.csv'
+    
+    # save cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation and reporting
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"\nCleaned summer temperature data saved to: {output_file}")
+    print(f"Temperature bins: {len(result_df)}")
+    print(f"Total pixels analyzed: {total_count:,}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # ID dominanttemperature range
+    if len(result_df) > 0:
+        # filter out zero-count bins for meaningful analysis
+        active_bins = result_df[result_df['count'] > 0]
+        if len(active_bins) > 0:
+            dominant_bin = active_bins.loc[active_bins['percentage'].idxmax()]
+            print(f"Most common temperature range: {dominant_bin['bin']}°C ({dominant_bin['percentage']:.1f}%)")
+    
+    return result_df
+
 # green spaces, NDVI (% area with different NDVI - i.e., "Water", [-1-0.015); "Built-up", [0.015-0.14); "Barren", [0.14-0.18); "Shrub and Grassland", [0.18-0.27); "Sparse", [0.27-0.36); and "Dense",   [0.36-1])  
 def clean_ndvi_area(input_tif_file: str, output_file: Optional[str] = None) -> pd.DataFrame:
     """
