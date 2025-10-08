@@ -1828,7 +1828,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_ndvi_area, clean_deforestation_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_summer_area, clean_ndvi_area, clean_deforestation_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1857,6 +1857,8 @@ if __name__ == "__main__":
         clean_aq_area(input_file, output_file)
     elif 'ndvi' in input_file:
         clean_ndvi_area(input_file, output_file)
+    elif 'summer' in input_file:
+        clean_summer_area(input_file, output_file)
     elif 'forest' in input_file:
         clean_deforestation_area(input_file, output_file)
     elif 'deforestation' in input_file:
@@ -1875,6 +1877,6 @@ if __name__ == "__main__":
         clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'ndvi' or 'forest' or 'deforestation' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'summer'or 'ndvi' or 'forest' or 'deforestation' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
