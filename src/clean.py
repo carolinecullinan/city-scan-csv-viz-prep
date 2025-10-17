@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import rasterio
 from rasterio.warp import reproject, Resampling
+import geopandas as gpd
 import os
 import sys
 from typing import Optional
@@ -176,14 +177,22 @@ def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_
         
         if len(gdf_valid) == 0:
             raise ValueError(f"No valid data found in '{rwi_column}' column")
-        
-        # calculate area for each grid cell (in square meters if CRS is projected)
+
+        print(f"Original CRS: {gdf_valid.crs}")
+
+        # reproject to appropriate projected crs for accurate area calculation
+        if gdf_valid.crs and gdf_valid.crs.is_geographic:
+            # estimate utm zone from centroid
+            gdf_valid = gdf_valid.to_crs(gdf_valid.estimate_utm_crs())
+            print(f"Reprojected to {gdf_valid.crs} for accurate area calculation")
+
+        # calculate area for each grid cell (now in square meters)
         gdf_valid['area'] = gdf_valid.geometry.area
-        
-        print(f"RWI data range: {gdf_valid[rwi_column].min():.3f} to {gdf_valid[rwi_column].max():.3f}")
+
+        print(f"\nRWI data range: {gdf_valid[rwi_column].min():.3f} to {gdf_valid[rwi_column].max():.3f}")
         print(f"Total grid cells: {len(gdf_valid):,}")
-        print(f"Total area: {gdf_valid['area'].sum():,.0f} sq units")
-        
+        print(f"Total area: {gdf_valid['area'].sum():,.0f} square meters")
+    
     except Exception as e:
         raise Exception(f"Error reading GeoPackage file {input_gpkg_file}: {e}")
     
@@ -231,6 +240,14 @@ def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_
     
     # create df
     result_df = pd.DataFrame(bin_data)
+
+     # filter out categories with no data
+    result_df = result_df[result_df['count'] > 0].copy()
+    
+    # check if there are fewer than 5 bins
+    if len(result_df) < 5:
+        print(f"\nNote: Only {len(result_df)} wealth categories created (expected 5)")
+        print("This can happen if RWI values have many duplicates (especially with discrete vs continuous RWI values (e.g., 0, 1 vs. 0.0123, 0.943)) - Despite this, the percentages should always be correct because we're summing the actual grid cell areas - no data is discarded, just the bin boundaries might merge if needed.")
     
     # create output filename if not provided
     if output_file is None:
