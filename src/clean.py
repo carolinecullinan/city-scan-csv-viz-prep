@@ -143,7 +143,7 @@ def clean_pas(input_file, output_file=None):
     
     return result_df
 
-# relative wealth index (rwi) % area with different relativ wealth index levels - "Least wealthy", "Less wealthy", "Average wealth", "More wealthy", "Most wealthy")
+# relative wealth index (rwi) % area with different relative wealth index levels - "Least wealthy", "Less wealthy", "Average wealth", "More wealthy", "Most wealthy")
 def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_column: str = 'rwi') -> pd.DataFrame:
     """
    process relative wealth index (rwi) gpkg file (i.e 20XX-04-country-city_02-process-output_spatial_city_rwi.gpkg) into cleaned csv, rwi_area.csv format for visualization.
@@ -1841,8 +1841,8 @@ def clean_fwi(input_file, output_file=None):
     df = pd.read_csv(input_file)
     
     # ISO 8601 standard week-to-month mapping
-    # Reference: ISO 8601:2004 Data elements and interchange formats
-    # Source: https://www.iso.org/standard/40874.html
+    # reference: ISO 8601:2004 Data elements and interchange formats
+    # source: https://www.iso.org/standard/40874.html
     def get_month_name_iso(week):
         """ISO 8601 standard week-to-month mapping"""
         if week <= 4:
@@ -1872,7 +1872,7 @@ def clean_fwi(input_file, output_file=None):
     
     # Fire Weather Index danger (i.e., risk) classification
 
-    # Source: https://climate-adapt.eea.europa.eu/en/metadata/indicators/fire-weather-index-monthly-mean-1979-2019
+    # source: https://climate-adapt.eea.europa.eu/en/metadata/indicators/fire-weather-index-monthly-mean-1979-2019
     def categorize_danger(fwi):
         """
         Fire Weather Index danger (i.e., risk) classification system
