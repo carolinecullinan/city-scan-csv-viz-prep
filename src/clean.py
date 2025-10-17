@@ -143,6 +143,119 @@ def clean_pas(input_file, output_file=None):
     
     return result_df
 
+# relative wealth index (rwi) % area with different relativ wealth index levels - "Least wealthy", "Less wealthy", "Average wealth", "More wealthy", "Most wealthy")
+def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_column: str = 'rwi') -> pd.DataFrame:
+    """
+   process relative wealth index (rwi) gpkg file (i.e 20XX-04-country-city_02-process-output_spatial_city_rwi.gpkg) into cleaned csv, rwi_area.csv format for visualization.
+    
+    Parameters:
+    -----------
+    input_gpkg_file : str
+        Path to the input GeoPackage file (RWI grid data)
+    output_file : str, optional
+        Path for output CSV file. If None, saves to 'data/processed/rwi_area.csv'
+    rwi_column : str, optional
+        Name of the RWI column in the GeoPackage (default: 'rwi')
+    
+    Returns:
+    --------
+    pd.DataFrame
+        Cleaned dataframe with columns: bin, count, percentage
+    """
+    
+    try:
+        # read gpkg file
+        gdf = gpd.read_file(input_gpkg_file)
+        
+        # check if rwi column exists
+        if rwi_column not in gdf.columns:
+            raise ValueError(f"Column '{rwi_column}' not found in GeoPackage. Available columns: {list(gdf.columns)}")
+        
+        # remove any rows with "null" rwi values
+        gdf_valid = gdf[gdf[rwi_column].notna()].copy()
+        
+        if len(gdf_valid) == 0:
+            raise ValueError(f"No valid data found in '{rwi_column}' column")
+        
+        # calculate area for each grid cell (in square meters if CRS is projected)
+        gdf_valid['area'] = gdf_valid.geometry.area
+        
+        print(f"RWI data range: {gdf_valid[rwi_column].min():.3f} to {gdf_valid[rwi_column].max():.3f}")
+        print(f"Total grid cells: {len(gdf_valid):,}")
+        print(f"Total area: {gdf_valid['area'].sum():,.0f} sq units")
+        
+    except Exception as e:
+        raise Exception(f"Error reading GeoPackage file {input_gpkg_file}: {e}")
+    
+    # create quantile-based bins (quintiles - 5 equal groups by area, i.e., 20% of the total area for each bin)
+    gdf_valid['rwi_quantile'] = pd.qcut(
+        gdf_valid[rwi_column], 
+        q=5, 
+        labels=['Least wealthy', 'Less wealthy', 'Average wealth', 'More wealthy', 'Most wealthy'],
+        duplicates='drop'  # handle case where there might be too many duplicate values
+    )
+    
+    print(f"\nQuantile thresholds:")
+    quantiles = gdf_valid[rwi_column].quantile([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    for i, (q, val) in enumerate(quantiles.items()):
+        if i == 0:
+            print(f"  Minimum: {val:.3f}")
+        elif i == 5:
+            print(f"  Maximum: {val:.3f}")
+        else:
+            print(f"  {int(q*100)}th percentile: {val:.3f}")
+    
+    # count grid cells and sum area for each rwi category
+    bin_data = []
+    total_area = gdf_valid['area'].sum()
+    
+    wealth_categories = ['Least wealthy', 'Less wealthy', 'Average wealth', 'More wealthy', 'Most wealthy']
+    
+    for category in wealth_categories:
+        category_data = gdf_valid[gdf_valid['rwi_quantile'] == category]
+        
+        if len(category_data) > 0:
+            count = len(category_data)
+            area = category_data['area'].sum()
+            percentage = (area / total_area) * 100
+        else:
+            count = 0
+            area = 0
+            percentage = 0.0
+        
+        bin_data.append({
+            'bin': category,
+            'count': int(count),
+            'percentage': round(percentage, 2)
+        })
+    
+    # create df
+    result_df = pd.DataFrame(bin_data)
+    
+    # create output filename if not provided
+    if output_file is None:
+        os.makedirs('data/processed', exist_ok=True)
+        output_file = 'data/processed/rwi_area.csv'
+    
+    # save cleaned data
+    result_df.to_csv(output_file, index=False)
+    
+    # basic validation
+    total_count = result_df['count'].sum()
+    percentage_sum = result_df['percentage'].sum()
+    
+    print(f"\nCleaned RWI data saved to: {output_file}")
+    print(f"Wealth categories: {len(result_df)}")
+    print(f"Total grid cells analyzed: {total_count:,}")
+    print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
+    
+    # show distribution
+    print(f"\nWealth Distribution:")
+    for idx, row in result_df.iterrows():
+        print(f"- {row['bin']}: {row['count']} cells ({row['percentage']:.1f}%)")
+    
+    return result_df
+
 # urban extent and change (cumulative kmˆ2 over time)
 def clean_uba(input_file, output_file=None):
     """
@@ -1828,7 +1941,7 @@ def clean_fwi(input_file, output_file=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python clean.py input_file.csv [output_file.csv]")
-        print("Available functions: clean_pg, clean_pas, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_summer_area, clean_ndvi_area, clean_deforestation_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
+        print("Available functions: clean_pg, clean_pas, clean_rwi_area, clean_uba, clean_uba_area, clean_lc, clean_pug, clean_pv, clean_pv_area, clean_aq_area, clean_summer_area, clean_ndvi_area, clean_deforestation_area, clean_flood, clean_e, clean_s, clean_ls_area, clean_ee, clean_l_area,clean_fwi")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -1839,6 +1952,8 @@ if __name__ == "__main__":
         clean_pg(input_file, output_file)
     elif 'demographics' in input_file:
         clean_pas(input_file, output_file)
+    elif 'rwi' in input_file:
+        clean_rwi_area(input_file, output_file)
     elif 'wsf_stats' in input_file: #wsft_stats, typo: fixed 15sept2025, 6:48 PM CEST
         clean_uba(input_file, output_file)
     elif 'wsf_evolution' in input_file:
@@ -1877,6 +1992,6 @@ if __name__ == "__main__":
         clean_l_area(input_file, output_file)
     else:
         print("Cannot determine which cleaning function to use.")
-        print("Please specify a file with 'population-growth' or 'demographics' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'summer'or 'ndvi' or 'forest' or 'deforestation' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
+        print("Please specify a file with 'population-growth' or 'demographics' or  'rwi' or 'wsf_stats' or 'wsf_evolution' or 'lc' or 'pug' or 'monthly-pv' or 'pv_area' or or 'air' or 'summer'or 'ndvi' or 'forest' or 'deforestation' or 'flood' or 'elevation' or 'slope' or 'landslide' or 'earthquake-events' or 'liquefaction' or 'fwi' in the name.")
         print(f"Your file: {input_file}")
         sys.exit(1)
