@@ -148,6 +148,15 @@ def clean_pas(input_file, output_file=None):
 def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_column: str = 'rwi') -> pd.DataFrame:
     """
    process relative wealth index (rwi) gpkg file (i.e 20XX-04-country-city_02-process-output_spatial_city_rwi.gpkg) into cleaned csv, rwi_area.csv format for visualization.
+
+   uses standard deviation binning to show true wealth distribution.
+    
+    categories defined by standard deviations from the city mean:
+    - least wealthy:  rwi < (mean - 1.0 * SD)
+    - less wealthy:   (mean - 1.0 * SD) ≤ RWI < (mean - 0.5 * SD)
+    - average wealth: (mean - 0.5 * SD) ≤ RWI < (mean + 0.5 * SD)
+    - more wealthy:   (mean + 0.5 * SD) ≤ RWI < (mean + 1.0 * SD)
+    - most wealthy:   rwi ≥ (mean + 1.0 * SD)
     
     Parameters:
     -----------
@@ -196,32 +205,55 @@ def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_
     except Exception as e:
         raise Exception(f"Error reading GeoPackage file {input_gpkg_file}: {e}")
     
-    # create quantile-based bins (quintiles - 5 equal groups by area, i.e., 20% of the total area for each bin)
-    gdf_valid['rwi_quantile'] = pd.qcut(
-        gdf_valid[rwi_column], 
-        q=5, 
-        labels=['Least wealthy', 'Less wealthy', 'Average wealth', 'More wealthy', 'Most wealthy'],
-        duplicates='drop'  # handle case where there might be too many duplicate values
-    )
+  # calculate mean and standard deviation (sd) of rwi values for specific city
+    rwi_mean = gdf_valid[rwi_column].mean()
+    rwi_sd = gdf_valid[rwi_column].std()
     
-    print(f"\nQuantile thresholds:")
-    quantiles = gdf_valid[rwi_column].quantile([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    for i, (q, val) in enumerate(quantiles.items()):
-        if i == 0:
-            print(f"  Minimum: {val:.3f}")
-        elif i == 5:
-            print(f"  Maximum: {val:.3f}")
-        else:
-            print(f"  {int(q*100)}th percentile: {val:.3f}")
+    print(f"\n{'='*60}")
+    print(f"CITY STATISTICS (for Standard Deviation binning)")
+    print(f"{'='*60}")
+    print(f"Mean RWI:             {rwi_mean:.3f}")
+    print(f"Standard Deviation:   {rwi_sd:.3f}")
+    
+    # define sd-based break points
+    break_least_less = rwi_mean - 1.0 * rwi_sd  # -1.0 sd
+    break_less_avg = rwi_mean - 0.5 * rwi_sd    # -0.5 sd
+    break_avg_more = rwi_mean + 0.5 * rwi_sd    # +0.5 sd
+    break_more_most = rwi_mean + 1.0 * rwi_sd   # +1.0 sd
+    
+    print(f"\nSTANDARD DEVIATION BREAK POINTS:")
+    print(f"  Least wealthy boundary:   RWI < {break_least_less:.3f}  (mean - 1.0 SD)")
+    print(f"  Less wealthy boundary:    {break_least_less:.3f} ≤ RWI < {break_less_avg:.3f}  (mean - 0.5 SD)")
+    print(f"  Average wealth boundary:  {break_less_avg:.3f} ≤ RWI < {break_avg_more:.3f}  (mean ± 0.5 SD)")
+    print(f"  More wealthy boundary:    {break_avg_more:.3f} ≤ RWI < {break_more_most:.3f}  (mean + 0.5 SD)")
+    print(f"  Most wealthy boundary:    RWI ≥ {break_more_most:.3f}  (mean + 1.0 SD)")
+    
+    # create bins array for pd.cut
+    bins = [
+        -np.inf,
+        break_least_less,
+        break_less_avg,
+        break_avg_more,
+        break_more_most,
+        np.inf
+    ]
+    
+    labels = ['Least wealthy', 'Less wealthy', 'Average wealth', 'More wealthy', 'Most wealthy']
+    
+    # apply sd-based categorization
+    gdf_valid['rwi_category'] = pd.cut(
+        gdf_valid[rwi_column],
+        bins=bins,
+        labels=labels,
+        include_lowest=True
+    )
     
     # count grid cells and sum area for each rwi category
     bin_data = []
     total_area = gdf_valid['area'].sum()
     
-    wealth_categories = ['Least wealthy', 'Less wealthy', 'Average wealth', 'More wealthy', 'Most wealthy']
-    
-    for category in wealth_categories:
-        category_data = gdf_valid[gdf_valid['rwi_quantile'] == category]
+    for category in labels:
+        category_data = gdf_valid[gdf_valid['rwi_category'] == category]
         
         if len(category_data) > 0:
             count = len(category_data)
@@ -237,7 +269,7 @@ def clean_rwi_area(input_gpkg_file: str, output_file: Optional[str] = None, rwi_
             'count': int(count),
             'percentage': round(percentage, 2)
         })
-    
+
     # create df
     result_df = pd.DataFrame(bin_data)
 
@@ -976,7 +1008,7 @@ def clean_summer_area(input_tif_file: str, output_file: Optional[str] = None, bi
     print(f"Total pixels analyzed: {total_count:,}")
     print(f"Percentage coverage verification: {percentage_sum:.1f}% (should be ~100%)")
     
-    # ID dominanttemperature range
+    # ID dominant temperature range
     if len(result_df) > 0:
         # filter out zero-count bins for meaningful analysis
         active_bins = result_df[result_df['count'] > 0]
